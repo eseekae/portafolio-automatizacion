@@ -1,0 +1,616 @@
+<title>Cartilla del Miércoles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ink:#131C33;
+  --ink-2:#2A3552;
+  --slate:#5D6883;
+  --slate-2:#8B93A8;
+  --paper:#EDF0F5;
+  --surface:#FFFFFF;
+  --surface-2:#E4E9F1;
+  --line:#C9D2E0;
+  --line-soft:#DDE3EC;
+  --amber:#C4711A;
+  --amber-soft:#F5E3CC;
+  --verde:#1B7554;
+  --verde-soft:#D6EADF;
+  --rojo:#A93B36;
+  --rojo-soft:#F2DAD8;
+
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#E8ECF5;
+    --ink-2:#C3CBDC;
+    --slate:#98A2BC;
+    --slate-2:#6E7893;
+    --paper:#0E1424;
+    --surface:#161E33;
+    --surface-2:#1E273F;
+    --line:#2E3A56;
+    --line-soft:#232D46;
+    --amber:#E8A24E;
+    --amber-soft:#3A2C17;
+    --verde:#4FBE8F;
+    --verde-soft:#132E24;
+    --rojo:#E07A73;
+    --rojo-soft:#33191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E8ECF5;
+  --ink-2:#C3CBDC;
+  --slate:#98A2BC;
+  --slate-2:#6E7893;
+  --paper:#0E1424;
+  --surface:#161E33;
+  --surface-2:#1E273F;
+  --line:#2E3A56;
+  --line-soft:#232D46;
+  --amber:#E8A24E;
+  --amber-soft:#3A2C17;
+  --verde:#4FBE8F;
+  --verde-soft:#132E24;
+  --rojo:#E07A73;
+  --rojo-soft:#33191A;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:17px;
+  line-height:1.62;
+  margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:0 20px 80px}
+.prose{max-width:64ch}
+
+h1,h2,h3,.disp{font-family:var(--f-display);font-weight:900;letter-spacing:-.02em;text-wrap:balance;margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.eyebrow{
+  font-family:var(--f-mono);font-size:.7rem;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--slate);
+}
+
+/* ---------- header ---------- */
+header{
+  border-bottom:3px solid var(--ink);
+  padding:44px 0 22px;
+  margin-bottom:8px;
+}
+.head-top{
+  display:flex;flex-wrap:wrap;gap:10px 18px;
+  align-items:baseline;justify-content:space-between;
+  margin-bottom:18px;
+}
+h1{font-size:clamp(2.6rem,8vw,4.4rem);line-height:.92;text-transform:uppercase}
+h1 .thin{display:block;font-weight:500;font-size:.4em;letter-spacing:.01em;text-transform:none;color:var(--slate);margin-top:14px}
+.stamp{
+  font-family:var(--f-mono);font-size:.72rem;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--amber);
+  border:1.5px solid var(--amber);border-radius:2px;padding:5px 10px;white-space:nowrap;
+}
+
+.aviso{
+  background:var(--surface);
+  border-left:4px solid var(--amber);
+  padding:16px 20px;
+  margin:26px 0 0;
+  font-size:.95rem;
+  color:var(--ink-2);
+}
+.aviso strong{font-family:var(--f-display);font-weight:800;color:var(--ink)}
+
+/* ---------- sections ---------- */
+section{margin-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.sec-head h2{font-size:clamp(1.5rem,4vw,2.1rem);text-transform:uppercase}
+.sec-head .rule{flex:1;height:2px;background:var(--line);align-self:center}
+.sec-sub{color:var(--slate);font-size:.98rem;margin:10px 0 26px;max-width:62ch}
+
+/* ---------- cartilla table ---------- */
+.tw{overflow-x:auto;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:660px;font-size:.9rem}
+thead th{
+  font-family:var(--f-mono);font-size:.66rem;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--slate);text-align:left;
+  padding:12px 14px;border-bottom:2px solid var(--line);background:var(--surface-2);
+  white-space:nowrap;
+}
+tbody td{padding:13px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+td.t-hora{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+td.t-hora small{display:block;font-weight:400;color:var(--slate-2);font-size:.78em;letter-spacing:.02em}
+td.t-match{font-family:var(--f-display);font-weight:700;font-size:.95rem;min-width:210px}
+td.t-match small{display:block;font-family:var(--f-body);font-weight:400;font-size:.82rem;color:var(--slate);margin-top:3px}
+td.t-odd{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.t-odd.fav{color:var(--verde);font-weight:600}
+.torneo{
+  display:inline-block;font-family:var(--f-mono);font-size:.62rem;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;padding:3px 7px;border-radius:2px;
+  background:var(--surface-2);color:var(--slate);white-space:nowrap;
+}
+
+/* ---------- picks ---------- */
+.picks{display:flex;flex-direction:column;gap:20px}
+.pick{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-top:4px solid var(--verde);
+  padding:24px 24px 22px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:6px 22px;
+}
+.pick.tier-b{border-top-color:var(--amber)}
+.pick.tier-c{border-top-color:var(--slate-2)}
+.pick.pass{border-top-color:var(--rojo);opacity:.94}
+
+.rank{
+  font-family:var(--f-display);font-weight:900;font-size:3.1rem;line-height:.8;
+  color:var(--line);letter-spacing:-.05em;grid-row:1 / span 4;
+  font-variant-numeric:tabular-nums;
+}
+.pick.tier-a .rank{color:var(--verde)}
+
+.pick-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;justify-content:space-between}
+.pick-bet{font-family:var(--f-display);font-weight:800;font-size:1.22rem;line-height:1.25;letter-spacing:-.01em}
+.cuota{
+  font-family:var(--f-mono);font-weight:600;font-size:1.5rem;font-variant-numeric:tabular-nums;
+  color:var(--verde);white-space:nowrap;line-height:1;
+}
+.pick.tier-b .cuota{color:var(--amber)}
+.pick.tier-c .cuota,.pick.pass .cuota{color:var(--slate)}
+.pick-meta{
+  font-family:var(--f-mono);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--slate);margin:4px 0 12px;
+}
+.pick-body p{margin:0 0 12px;font-size:.97rem;color:var(--ink-2);max-width:62ch}
+.pick-body p:last-child{margin-bottom:0}
+
+.riesgo{
+  border-left:3px solid var(--rojo);
+  background:var(--rojo-soft);
+  padding:10px 14px;font-size:.9rem;color:var(--ink-2);margin-top:14px;
+}
+.riesgo b{font-family:var(--f-display);font-weight:800;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--rojo);display:block;margin-bottom:3px}
+
+/* value meter */
+.meter{margin:16px 0 4px;max-width:400px}
+.meter-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.meter-lab{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);width:88px;flex:none}
+.meter-bar{flex:1;height:9px;background:var(--surface-2);position:relative;overflow:hidden}
+.meter-fill{position:absolute;inset:0 auto 0 0;background:var(--slate-2)}
+.meter-fill.est{background:var(--verde)}
+.meter-val{font-family:var(--f-mono);font-size:.75rem;font-weight:600;font-variant-numeric:tabular-nums;width:44px;text-align:right;flex:none;color:var(--ink-2)}
+
+/* ---------- boletos ---------- */
+.boletos{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.boleto{
+  position:relative;
+  background:var(--surface);
+  padding:22px 22px 30px;
+  box-shadow:inset 0 0 0 1px var(--line);
+  -webkit-mask:
+    radial-gradient(circle at 7px 0, transparent 6px, #000 6.5px) bottom left / 14px 12px repeat-x,
+    linear-gradient(#000,#000) top left / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(circle at 7px 0, transparent 6px, #000 6.5px) bottom left / 14px 12px repeat-x,
+    linear-gradient(#000,#000) top left / 100% calc(100% - 11px) no-repeat;
+}
+.bol-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-bottom:2px solid var(--ink);padding-bottom:9px;margin-bottom:16px}
+.bol-name{font-family:var(--f-display);font-weight:900;font-size:1.05rem;text-transform:uppercase;letter-spacing:-.01em}
+.bol-folio{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.1em;color:var(--slate-2);white-space:nowrap}
+.legs{list-style:none;margin:0;padding:0}
+.legs li{
+  display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  padding:9px 0;border-bottom:1px dotted var(--line);font-size:.9rem;
+}
+.legs li:last-child{border-bottom:none}
+.leg-txt{color:var(--ink-2)}
+.leg-txt em{display:block;font-style:normal;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--slate-2);margin-top:2px}
+.leg-odd{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+.bol-total{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:2px dashed var(--line);margin-top:14px;padding-top:14px}
+.bol-total .lab{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+.bol-total .big{font-family:var(--f-mono);font-weight:600;font-size:2rem;font-variant-numeric:tabular-nums;line-height:1;color:var(--amber)}
+.bol-stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+.bstat .k{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--slate-2);display:block}
+.bstat .v{font-family:var(--f-mono);font-weight:600;font-size:.95rem;font-variant-numeric:tabular-nums;color:var(--ink)}
+.veredicto{margin-top:15px;font-size:.88rem;color:var(--ink-2);line-height:1.5}
+.veredicto b{font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:.68rem;display:block;margin-bottom:4px}
+.veredicto.ok b{color:var(--verde)}
+.veredicto.mid b{color:var(--amber)}
+.veredicto.bad b{color:var(--rojo)}
+.bstat .v.ok-v{color:var(--verde)}
+.bstat .v.bad-v{color:var(--rojo)}
+.mg-list .p.ok-v{color:var(--verde)}
+.mg-list .b i.g{background:var(--verde)}
+
+/* ---------- margen ---------- */
+.margen{background:var(--surface);border:1px solid var(--line);padding:26px 26px 22px}
+.mg-list{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:11px}
+.mg-list li{display:grid;grid-template-columns:78px 1fr 62px;align-items:center;gap:14px}
+.mg-list .n{font-family:var(--f-mono);font-size:.76rem;font-weight:600;color:var(--ink-2);letter-spacing:.04em}
+.mg-list .b{height:14px;background:var(--surface-2);position:relative;overflow:hidden}
+.mg-list .b i{position:absolute;inset:0 auto 0 0;background:var(--rojo);display:block}
+.mg-list .p{font-family:var(--f-mono);font-size:.82rem;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;color:var(--rojo)}
+.punch{
+  font-family:var(--f-display);font-weight:800;font-size:1.12rem;line-height:1.4;
+  letter-spacing:-.01em;margin-top:24px;padding-top:20px;border-top:2px solid var(--line);
+  max-width:56ch;
+}
+
+/* ---------- banca ---------- */
+.banca{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2px;background:var(--line);border:1px solid var(--line)}
+.banca li{background:var(--surface);padding:20px}
+.banca .k{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:7px}
+.banca .t{font-size:.93rem;color:var(--ink-2);line-height:1.5}
+
+footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--line);font-size:.84rem;color:var(--slate)}
+footer a{color:var(--slate);text-decoration:underline;text-underline-offset:2px}
+footer a:hover,footer a:focus-visible{color:var(--amber)}
+footer ul{margin:10px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+@media (max-width:620px){
+  body{font-size:16px}
+  .pick{grid-template-columns:1fr;padding:20px}
+  .rank{grid-row:auto;font-size:2.2rem;margin-bottom:2px}
+  .mg-list li{grid-template-columns:70px 1fr 54px;gap:10px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style><style>
+/* --- añadidos propios de esta cartilla --- */
+.llave{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--f-mono);font-size:.7rem;font-weight:600;font-variant-numeric:tabular-nums;
+  padding:3px 8px;border-radius:2px;background:var(--amber-soft);color:var(--amber);
+  border:1px solid var(--amber);white-space:nowrap;
+}
+.llave.abierta::before{content:"=";font-weight:700;opacity:.7}
+.tesis{
+  background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--amber);
+  padding:28px 28px 24px;margin-top:26px;
+}
+.tesis h3{font-family:var(--f-display);font-weight:900;font-size:1.3rem;text-transform:uppercase;letter-spacing:-.01em;margin-bottom:14px}
+.tesis p{margin:0 0 13px;color:var(--ink-2);font-size:.98rem;max-width:64ch}
+.tesis p:last-child{margin-bottom:0}
+.vs-ayer{display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin:22px 0 4px;border:1px solid var(--line)}
+.vs-col{padding:16px 18px;background:var(--surface-2)}
+.vs-col.hoy{background:var(--surface)}
+.vs-col .k{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.11em;text-transform:uppercase;color:var(--slate);display:block;margin-bottom:7px}
+.vs-col .t{font-family:var(--f-display);font-weight:800;font-size:.95rem;line-height:1.35;letter-spacing:-.01em}
+.vs-col.hoy .t{color:var(--amber)}
+.vs-mid{display:flex;align-items:center;justify-content:center;padding:0 12px;background:var(--surface-2);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.vs-mid span{font-family:var(--f-display);font-weight:900;font-size:.7rem;letter-spacing:.12em;color:var(--slate-2)}
+@media (max-width:560px){.vs-ayer{grid-template-columns:1fr}.vs-mid{padding:8px;border-left:none;border-right:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="head-top">
+    <span class="eyebrow">Miércoles 26 de agosto de 2026 &middot; Horarios de Chile</span>
+    <span class="stamp">Análisis independiente</span>
+  </div>
+  <h1>Cartilla<br>del Miércoles
+    <span class="thin">Noche de llaves empatadas: las cinco eliminatorias de la cartilla llegan iguales en el global. Eso cambia todo lo que funcionó ayer.</span>
+  </h1>
+</header>
+
+<div class="aviso">
+  <strong>Lee esto antes.</strong> Las cuotas vienen de comparadores públicos y casas de análisis, no del sitio de Betano — este entorno tiene bloqueado el acceso directo a su web. Las marcadas con <span class="mono">~</span> son estimadas a partir del resto del mercado, no citadas. Las cuotas se mueven durante el día: <strong>verifica cada precio en tu app antes de jugar.</strong>
+</div>
+
+<section>
+  <div class="sec-head"><h2>La tesis</h2><span class="rule"></span></div>
+  <div class="tesis">
+    <h3>Hoy es el espejo de ayer</h3>
+    <p>La cartilla del martes se apoyaba en una idea: llaves ya resueltas, un equipo obligado a remontar, partidos que se abren solos. De ahí salieron los <em>overs</em>.</p>
+    <p>Hoy pasa exactamente lo contrario. <strong>Las cinco eliminatorias de la cartilla llegan empatadas</strong> — AEK-Levski 0-0, Viking-Dinamo 2-2, Celje-Slovan 1-1, Lyon-Fenerbahçe 1-1, River-Santa Fe 0-0. Nadie está obligado a atacar desde el minuto uno, porque a nadie le urge: el empate no elimina, lleva a alargue.</p>
+    <p>Eso produce partidos distintos. Más paciencia, más miedo a la contra, más bloques bajos esperando el error. La consecuencia práctica: los favoritos cotizan cortos por lo que valen los equipos, no por lo que exige el partido, y los <em>unders</em> pasan a tener el valor que ayer tenían los <em>overs</em>.</p>
+    <div class="vs-ayer">
+      <div class="vs-col"><span class="k">Ayer · martes</span><span class="t">Llaves resueltas → alguien obligado a remontar → partidos abiertos → overs</span></div>
+      <div class="vs-mid"><span>ESPEJO</span></div>
+      <div class="vs-col hoy"><span class="k">Hoy · miércoles</span><span class="t">Llaves empatadas → nadie obligado a correr → partidos trabados → unders</span></div>
+    </div>
+    <p style="margin-top:18px">Con una excepción que vale oro, y está en el número 3 del top: <strong>Viking-Dinamo</strong>. Esa llave llegó empatada, sí, pero 2-2 — las dos defensas ya demostraron que no aguantan. Ahí la tesis se da vuelta, y por eso es una apuesta y no una contradicción.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>La cartilla</h2><span class="rule"></span></div>
+  <p class="sec-sub">Seis partidos: los cuatro playoffs de vuelta de Champions, la jornada 1 aplazada de LaLiga y la vuelta de octavos de Sudamericana. Ojo con el choque de horarios — cinco de los seis arrancan a la misma hora.</p>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>Hora</th><th>Partido</th><th>Llave</th><th>Torneo</th><th style="text-align:right">1</th><th style="text-align:right">X</th><th style="text-align:right">2</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="t-hora">15:00<small>19:00 UTC</small></td>
+          <td class="t-match">AEK Atenas — Levski Sofia<small>Allwyn Arena, Atenas</small></td>
+          <td><span class="llave abierta">0-0</span></td>
+          <td><span class="torneo">UCL Playoff</span></td>
+          <td class="t-odd fav">1.55</td><td class="t-odd">3.80</td><td class="t-odd">6.00</td>
+        </tr>
+        <tr>
+          <td class="t-hora">15:00<small>19:00 UTC</small></td>
+          <td class="t-match">Lyon — Fenerbahçe<small>Groupama Stadium</small></td>
+          <td><span class="llave abierta">1-1</span></td>
+          <td><span class="torneo">UCL Playoff</span></td>
+          <td class="t-odd fav">1.80</td><td class="t-odd">~3.70</td><td class="t-odd">3.80</td>
+        </tr>
+        <tr>
+          <td class="t-hora">15:00<small>19:00 UTC</small></td>
+          <td class="t-match">Viking — Dinamo Zagreb<small>SR-Bank Arena, Stavanger</small></td>
+          <td><span class="llave abierta">2-2</span></td>
+          <td><span class="torneo">UCL Playoff</span></td>
+          <td class="t-odd fav">2.25</td><td class="t-odd">~3.55</td><td class="t-odd">2.80</td>
+        </tr>
+        <tr>
+          <td class="t-hora">15:00<small>19:00 UTC</small></td>
+          <td class="t-match">Celje — Slovan Bratislava<small>Stadion Z'dežele</small></td>
+          <td><span class="llave abierta">1-1</span></td>
+          <td><span class="torneo">UCL Playoff</span></td>
+          <td class="t-odd fav">2.50</td><td class="t-odd">3.25</td><td class="t-odd">3.16</td>
+        </tr>
+        <tr>
+          <td class="t-hora">15:00<small>19:00 UTC</small></td>
+          <td class="t-match">Real Madrid — Real Sociedad<small>Bernabéu · Jornada 1 aplazada</small></td>
+          <td><span class="torneo">—</span></td>
+          <td><span class="torneo">LaLiga</span></td>
+          <td class="t-odd fav">1.41</td><td class="t-odd">~4.75</td><td class="t-odd">~7.00</td>
+        </tr>
+        <tr>
+          <td class="t-hora">20:30<small>00:30 UTC</small></td>
+          <td class="t-match">River Plate — Santa Fe<small>Más Monumental, Buenos Aires</small></td>
+          <td><span class="llave abierta">0-0</span></td>
+          <td><span class="torneo">Sudamericana</span></td>
+          <td class="t-odd fav">1.52</td><td class="t-odd">~4.20</td><td class="t-odd">7.60</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>El top 5</h2><span class="rule"></span></div>
+  <p class="sec-sub">Ordenadas por valor, no por probabilidad. Cada una lleva la probabilidad implícita en la cuota contra mi estimación — la diferencia entre esas dos barras es todo el argumento.</p>
+
+  <div class="picks">
+
+    <article class="pick tier-a">
+      <div class="rank">01</div>
+      <div class="pick-head">
+        <span class="pick-bet">Under 2.5 goles &middot; AEK — Levski Sofia</span>
+        <span class="cuota">1.77</span>
+      </div>
+      <div class="pick-meta">La mejor del día · 15:00</div>
+      <div class="pick-body">
+        <p>La llave más trabada de la noche y la que mejor encaja con la tesis. Entre los dos equipos han recibido apenas dos goles en sus últimos cinco partidos: Levski dejó el arco en cero en cuatro de cinco, y el AEK no recibió en tres de cinco.</p>
+        <p>El 0-0 de la ida no fue casualidad, fue un plan que funcionó. A Levski le sirve repetirlo — un 0-0 a los 90 lo lleva a alargue, así que va a meterse atrás sin ningún apuro. Y el AEK, favorito a 1.55, tiene que romper un bloque bajo que ya lo dejó sin gol una vez. El <em>under</em> apareció en cuatro de los últimos siete del AEK y cinco de los últimos siete del Levski en esta previa.</p>
+        <div class="meter">
+          <div class="meter-row"><span class="meter-lab">Implícita</span><span class="meter-bar"><span class="meter-fill" style="width:56.5%"></span></span><span class="meter-val">56,5%</span></div>
+          <div class="meter-row"><span class="meter-lab">Mi estimado</span><span class="meter-bar"><span class="meter-fill est" style="width:61%"></span></span><span class="meter-val">~61%</span></div>
+        </div>
+        <div class="riesgo"><b>El peligro</b>Un gol temprano del AEK obliga a Levski a salir y el partido se abre justo en contra tuya. Es el único escenario que rompe la apuesta, pero es un escenario real.</div>
+      </div>
+    </article>
+
+    <article class="pick tier-a">
+      <div class="rank">02</div>
+      <div class="pick-head">
+        <span class="pick-bet">Lyon gana &middot; Lyon — Fenerbahçe</span>
+        <span class="cuota">1.80</span>
+      </div>
+      <div class="pick-meta">El mejor equipo en el mejor escenario · 15:00</div>
+      <div class="pick-body">
+        <p>De las cuatro llaves de Champions, esta es la que tiene un favorito claro que además cotiza decente. El 1-1 en Estambul es la mitad buena de ese resultado: Lyon se trajo el empate de la cancha difícil y ahora define en casa.</p>
+        <p>Fenerbahçe llega golpeado por lesiones. Lyon viene de ganar con el arco en cero en la Ligue 1 y domina el historial en Champions con cuatro triunfos en cinco cruces. Calidad, localía y estado de forma apuntan al mismo lado, y 1.80 paga bien para un favorito con esos tres factores.</p>
+        <div class="meter">
+          <div class="meter-row"><span class="meter-lab">Implícita</span><span class="meter-bar"><span class="meter-fill" style="width:55.6%"></span></span><span class="meter-val">55,6%</span></div>
+          <div class="meter-row"><span class="meter-lab">Mi estimado</span><span class="meter-bar"><span class="meter-fill est" style="width:57%"></span></span><span class="meter-val">~57%</span></div>
+        </div>
+        <div class="riesgo"><b>El peligro</b>Es la trampa de la noche: con la llave empatada, a Lyon también le sirve el 0-0 para irse al alargue. Un partido controlado sin goles clasifica a Lyon pero <em>pierde</em> esta apuesta. Es un margen de valor chico, no lo sobrecargues.</div>
+      </div>
+    </article>
+
+    <article class="pick tier-b">
+      <div class="rank">03</div>
+      <div class="pick-head">
+        <span class="pick-bet">Over 2.5 goles &middot; Viking — Dinamo Zagreb</span>
+        <span class="cuota">1.70</span>
+      </div>
+      <div class="pick-meta">La excepción a la tesis · 15:00</div>
+      <div class="pick-body">
+        <p>Esta llave también llegó empatada, pero llegó 2-2. Esa diferencia lo es todo: las otras se empataron a base de solidez, esta se empató a base de que ninguna de las dos defensas funciona.</p>
+        <p>Dinamo ya sacó dos goles de visita, así que Viking no puede plantarse atrás como el Levski — tiene que ganar el partido. Y Viking en casa no puede permitirse recibir temprano, porque cada gol croata lo obliga a hacer dos. Los dos necesitan marcar, los dos conceden. Es el único partido de la noche donde la urgencia aparece por ambos lados.</p>
+        <div class="meter">
+          <div class="meter-row"><span class="meter-lab">Implícita</span><span class="meter-bar"><span class="meter-fill" style="width:58.8%"></span></span><span class="meter-val">58,8%</span></div>
+          <div class="meter-row"><span class="meter-lab">Mi estimado</span><span class="meter-bar"><span class="meter-fill est" style="width:61%"></span></span><span class="meter-val">~61%</span></div>
+        </div>
+        <div class="riesgo"><b>El peligro</b>El contraargumento honesto: a veces un 2-2 en la ida asusta a los dos y la vuelta sale trabadísima, precisamente porque ambos ya vieron lo que les cuesta defender.</div>
+      </div>
+    </article>
+
+    <article class="pick tier-b">
+      <div class="rank">04</div>
+      <div class="pick-head">
+        <span class="pick-bet">Ambos marcan &middot; Celje — Slovan Bratislava</span>
+        <span class="cuota">1.83</span>
+      </div>
+      <div class="pick-meta">Cuando el mercado no sabe, no juegues el resultado · 15:00</div>
+      <div class="pick-body">
+        <p>Mira el 1X2: Celje 2.50, empate 3.25, Slovan 3.16. Es el mercado más plano de toda la cartilla, y eso es información — significa que la casa tampoco tiene idea de quién gana este partido.</p>
+        <p>Cuando el resultado es una moneda al aire de tres caras, la jugada es dejar de apostar al ganador y apostar a lo que sí es predecible. Y acá lo predecible son los goles repartidos: los dos equipos marcaron en cuatro de sus últimos seis enfrentamientos, y la ida terminó 1-1. Ninguna de las dos defensas da confianza como para apostar en su contra.</p>
+        <div class="meter">
+          <div class="meter-row"><span class="meter-lab">Implícita</span><span class="meter-bar"><span class="meter-fill" style="width:54.6%"></span></span><span class="meter-val">54,6%</span></div>
+          <div class="meter-row"><span class="meter-lab">Mi estimado</span><span class="meter-bar"><span class="meter-fill est" style="width:57%"></span></span><span class="meter-val">~57%</span></div>
+        </div>
+        <div class="riesgo"><b>El peligro</b>Mercado plano también significa varianza alta. Un 1-0 para cualquiera de los dos — el resultado más común del fútbol — te deja fuera.</div>
+      </div>
+    </article>
+
+    <article class="pick tier-c">
+      <div class="rank">05</div>
+      <div class="pick-head">
+        <span class="pick-bet">Ambos marcan + Over 2.5 &middot; Real Madrid — Real Sociedad</span>
+        <span class="cuota">1.95</span>
+      </div>
+      <div class="pick-meta">La forma correcta de jugar un favorito impagable · 15:00</div>
+      <div class="pick-body">
+        <p>El Madrid a 1.41 no se puede apostar: los modelos le dan 71-74% de ganar y la cuota ya paga exactamente eso. Cero valor. Pero el partido igual tiene una entrada.</p>
+        <p>Es la jornada 1 aplazada, y se aplazó justamente porque medio plantel del Madrid llegó tarde del Mundial. Equipo sin rodaje contra una Real Sociedad que convierte. Las proyecciones apuntan a un 2-1. Este mercado combinado — que gana si el Madrid se impone pero sin dejar el arco en cero — es la manera limpia de jugar esa lectura sin pagar 1.41 por lo obvio.</p>
+        <div class="meter">
+          <div class="meter-row"><span class="meter-lab">Implícita</span><span class="meter-bar"><span class="meter-fill" style="width:51.3%"></span></span><span class="meter-val">51,3%</span></div>
+          <div class="meter-row"><span class="meter-lab">Mi estimado</span><span class="meter-bar"><span class="meter-fill est" style="width:52%"></span></span><span class="meter-val">~52%</span></div>
+        </div>
+        <div class="riesgo"><b>El peligro</b>Margen mínimo, casi cosmético — es la pata más floja del top y está acá por interés del partido, no por valor. Si el Madrid golea con el arco en cero, se cae la mitad de la apuesta.</div>
+      </div>
+    </article>
+
+    <article class="pick pass">
+      <div class="rank">✕</div>
+      <div class="pick-head">
+        <span class="pick-bet">Paso &middot; River Plate — Santa Fe</span>
+        <span class="cuota">1.52 / ~4.20 / 7.60</span>
+      </div>
+      <div class="pick-meta">Fuera del top a propósito · 20:30</div>
+      <div class="pick-body">
+        <p>River a 1.52 en el Monumental parece cómodo hasta que recuerdas el detalle: en la ida, en Bogotá, no le pudo hacer un gol a este mismo Santa Fe. Pagar 1.52 por un equipo que viene de no convertir, contra un rival que ya demostró que sabe aguantarlo, es pagar la camiseta.</p>
+        <p>Y Santa Fe a 7.60 tampoco es la respuesta: la llave está 0-0, así que al colombiano le basta con aguantar de nuevo para irse al alargue. No necesita ganar, y eso hace que su 7.60 sea menos atractivo de lo que parece.</p>
+        <p>Si quieres jugarlo igual, lo que encaja con la noche es el <strong>Under 2.5</strong> — misma lógica que el número 1 del top. No cito la cuota porque no la tengo confirmada: búscala en tu app y decide con el precio a la vista.</p>
+      </div>
+    </article>
+
+  </div>
+</section>
+<section>
+  <div class="sec-head"><h2>Los boletos</h2><span class="rule"></span></div>
+  <p class="sec-sub">Cuatro combinadas de menos a más riesgo. En cada una va la cuota total, el <em>equilibrio</em> (lo que necesitas acertar para no perder plata) y mi estimación. Como ayer, la cifra que manda es la última: qué le pasa al boleto si me equivoco apenas 3 puntos por pata.</p>
+
+  <div class="boletos">
+
+    <article class="boleto">
+      <div class="bol-top"><span class="bol-name">La del guion</span><span class="bol-folio">2 PATAS</span></div>
+      <ul class="legs">
+        <li><span class="leg-txt">Under 2.5 goles<em>AEK — Levski</em></span><span class="leg-odd">1.77</span></li>
+        <li><span class="leg-txt">Lyon gana<em>Lyon — Fenerbahçe</em></span><span class="leg-odd">1.80</span></li>
+      </ul>
+      <div class="bol-total"><span class="lab">Cuota total</span><span class="big">3.19</span></div>
+      <div class="bol-stats">
+        <span class="bstat"><span class="k">Equilibrio</span><span class="v">31,4%</span></span>
+        <span class="bstat"><span class="k">Estimado</span><span class="v">34,8%</span></span>
+        <span class="bstat"><span class="k">Si fallo 3 pts</span><span class="v">−0,2%</span></span>
+      </div>
+      <p class="veredicto ok"><b>La mejor del día</b>Junta las dos patas con más argumento del top y las dos comparten la misma lectura de la noche: llaves empatadas, partidos controlados, favoritos que se imponen sin fiesta de goles. Con un error de 3 puntos por pata queda plana en vez de hundirse — eso es lo mejor que vas a conseguir de una combinada.</p>
+    </article>
+
+    <article class="boleto">
+      <div class="bol-top"><span class="bol-name">La de los goles</span><span class="bol-folio">2 PATAS</span></div>
+      <ul class="legs">
+        <li><span class="leg-txt">Over 2.5 goles<em>Viking — Dinamo</em></span><span class="leg-odd">1.70</span></li>
+        <li><span class="leg-txt">Ambos marcan<em>Celje — Slovan</em></span><span class="leg-odd">1.83</span></li>
+      </ul>
+      <div class="bol-total"><span class="lab">Cuota total</span><span class="big">3.11</span></div>
+      <div class="bol-stats">
+        <span class="bstat"><span class="k">Equilibrio</span><span class="v">32,1%</span></span>
+        <span class="bstat"><span class="k">Estimado</span><span class="v">34,8%</span></span>
+        <span class="bstat"><span class="k">Si fallo 3 pts</span><span class="v">−2,6%</span></span>
+      </div>
+      <p class="veredicto ok"><b>La contraria, y por eso sirve</b>Los dos partidos donde las defensas ya se mostraron rotas. Es la apuesta opuesta a la anterior, y jugarlas juntas no es contradecirse: cubren escenarios distintos de la misma noche. Si crees más en el caos que en el control, esta es tu boleta.</p>
+    </article>
+
+    <article class="boleto">
+      <div class="bol-top"><span class="bol-name">La de favoritos</span><span class="bol-folio">3 PATAS</span></div>
+      <ul class="legs">
+        <li><span class="leg-txt">Lyon gana<em>Lyon — Fenerbahçe</em></span><span class="leg-odd">1.80</span></li>
+        <li><span class="leg-txt">AEK gana<em>AEK — Levski</em></span><span class="leg-odd">1.55</span></li>
+        <li><span class="leg-txt">River gana<em>River — Santa Fe</em></span><span class="leg-odd">1.52</span></li>
+      </ul>
+      <div class="bol-total"><span class="lab">Cuota total</span><span class="big">4.24</span></div>
+      <div class="bol-stats">
+        <span class="bstat"><span class="k">Equilibrio</span><span class="v">23,6%</span></span>
+        <span class="bstat"><span class="k">Estimado</span><span class="v">21,6%</span></span>
+        <span class="bstat"><span class="k">Si fallo 3 pts</span><span class="v bad-v">−21,6%</span></span>
+      </div>
+      <p class="veredicto bad"><b>La trampa clásica — no la juegues</b>La incluyo porque es la que todo el mundo arma y la única del día que ya sale negativa <em>antes</em> de aplicarle margen de error: −8,6% de entrada. Encadena tres favoritos cortos que están cortos justamente por lo que valen los equipos, no por lo que exige el partido — y en llaves empatadas a los tres les sirve el empate. Estás pagando cuota de victoria por equipos que no necesitan ganar hoy.</p>
+    </article>
+
+    <article class="boleto">
+      <div class="bol-top"><span class="bol-name">La bala perdida</span><span class="bol-folio">5 PATAS</span></div>
+      <ul class="legs">
+        <li><span class="leg-txt">Under 2.5 goles<em>AEK — Levski</em></span><span class="leg-odd">1.77</span></li>
+        <li><span class="leg-txt">Lyon gana<em>Lyon — Fenerbahçe</em></span><span class="leg-odd">1.80</span></li>
+        <li><span class="leg-txt">Over 2.5 goles<em>Viking — Dinamo</em></span><span class="leg-odd">1.70</span></li>
+        <li><span class="leg-txt">Ambos marcan<em>Celje — Slovan</em></span><span class="leg-odd">1.83</span></li>
+        <li><span class="leg-txt">Ambos marcan + Over 2.5<em>Madrid — Real Sociedad</em></span><span class="leg-odd">1.95</span></li>
+      </ul>
+      <div class="bol-total"><span class="lab">Cuota total</span><span class="big">19.33</span></div>
+      <div class="bol-stats">
+        <span class="bstat"><span class="k">Equilibrio</span><span class="v">5,2%</span></span>
+        <span class="bstat"><span class="k">Estimado</span><span class="v">6,3%</span></span>
+        <span class="bstat"><span class="k">Si fallo 3 pts</span><span class="v bad-v">−7,1%</span></span>
+      </div>
+      <p class="veredicto bad"><b>No te creas el +21%</b>En el papel esta boleta muestra un +21,5% de valor esperado, el número más alto de la página. <strong>Es mentira, y es importante que entiendas por qué.</strong> Ese +21% sale de multiplicar cinco estimaciones mías que apuntan todas en la misma dirección optimista. No es un modelo, es mi lectura repetida cinco veces. Bájale 3 puntos a cada pata y cae a −7,1%: un vuelco de 28 puntos. Stake de lotería, 0,5% de banca.</p>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>La matemática</h2><span class="rule"></span></div>
+  <p class="sec-sub">Ayer viste cómo se multiplica el margen de la casa. Hoy toca la mitad incómoda: cómo se multiplica el tuyo.</p>
+  <div class="margen">
+    <p class="prose" style="margin:0;color:var(--ink-2);font-size:.97rem">Todas las cuotas traen el margen de la casa incorporado, entre 5% y 7% por partido, y ese margen se multiplica con cada pata que agregas. Pero hay un segundo efecto que casi nadie calcula: <strong>tu propio error de estimación se multiplica igual</strong>. Esta es la sensibilidad real de los cuatro boletos de hoy — cuánto se mueve el valor esperado si mi lectura está 3 puntos pasada de optimista por pata:</p>
+    <ul class="mg-list">
+      <li><span class="n">2 patas · guion</span><span class="b"><i class="g" style="width:38%"></i></span><span class="p ok-v">11 pts</span></li>
+      <li><span class="n">2 patas · goles</span><span class="b"><i class="g" style="width:37%"></i></span><span class="p ok-v">11 pts</span></li>
+      <li><span class="n">3 patas</span><span class="b"><i style="width:46%"></i></span><span class="p">13 pts</span></li>
+      <li><span class="n">5 patas</span><span class="b"><i style="width:100%"></i></span><span class="p">29 pts</span></li>
+    </ul>
+    <p class="punch">Un error de 3 puntos por pata te mueve la combinada de 2 patas once puntos, y la de 5 patas casi treinta. Por eso las combinadas largas no fallan de a poco: cuando fallan, fallan entero. Los cinco singles del top siguen siendo la forma más limpia de expresar exactamente la misma opinión.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Banca</h2><span class="rule"></span></div>
+  <p class="sec-sub">Lo mismo de ayer, con un agregado propio de esta cartilla.</p>
+  <ul class="banca">
+    <li><span class="k">Cuidado con el horario</span><span class="t">Cinco de los seis partidos arrancan a las 15:00 a la vez. No vas a poder seguirlos ni corregir sobre la marcha: define tus montos antes de que empiece la tanda.</span></li>
+    <li><span class="k">Stake plano</span><span class="t">1 a 2% de banca por cada single del top. Nada de subir el monto porque "esta va segura".</span></li>
+    <li><span class="k">Techo de combinadas</span><span class="t">Máximo 0,5% en la bala perdida. La de favoritos sale negativa en el papel — esa directamente no la juegues.</span></li>
+    <li><span class="k">No persigas</span><span class="t">Si se cae la primera, la respuesta nunca es doblar el stake en la siguiente. Ahí es donde se pierden las bancas.</span></li>
+    <li><span class="k">Registra todo</span><span class="t">Cuota, monto, resultado. Sin registro no tienes idea de si ganas o solo recuerdas los aciertos.</span></li>
+    <li><span class="k">Verifica el precio</span><span class="t">Si la cuota bajó respecto a esta cartilla, el valor se fue. Deja pasar esa apuesta sin drama.</span></li>
+  </ul>
+</section>
+
+<footer>
+  <p>Análisis independiente elaborado a partir de cuotas públicas de comparadores y casas de análisis, recopiladas el 25 de agosto de 2026 para los partidos del 26. No está afiliado ni respaldado por Betano ni por ninguna casa de apuestas. Ninguna apuesta es segura y ningún análisis cambia eso: apuesta solo lo que puedas permitirte perder.</p>
+  <ul>
+    <li><a href="https://footballwhispers.com/blog/aek-athens-vs-levski-sofia-prediction-preview-betting-tips-26-08-2026/">Football Whispers — AEK vs Levski Sofia, previa y cuotas</a></li>
+    <li><a href="https://www.sportsgambler.com/betting-tips/football/lyon-vs-fenerbahce-prediction-lineups-odds-2026-08-26/">Sportsgambler — Lyon vs Fenerbahçe</a></li>
+    <li><a href="https://www.wincomparator.com/predictions/viking-fk-gnk-dinamo-zagreb-8703932/">Wincomparator — Viking vs Dinamo Zagreb</a></li>
+    <li><a href="https://www.mightytips.com/football-predictions/nk-celje-vs-slovan-bratislava-prediction-26-08-2026/">MightyTips — Celje vs Slovan Bratislava</a></li>
+    <li><a href="https://www.oddschecker.com/es/pronosticos/futbol/2026/agosto/pronostico-real-madrid-vs-real-sociedad-26-08-26">Oddschecker — Real Madrid vs Real Sociedad</a></li>
+    <li><a href="https://www.lanacion.com.ar/deportes/futbol/river-vs-independiente-santa-fe-por-la-vuelta-de-la-copa-sudamericana-2026-dia-horario-tv-y-como-ver-nid24082026/">La Nación — River vs Santa Fe, horario y contexto</a></li>
+    <li><a href="https://www.uefa.com/uefachampionsleague/news/02a6-20e5a8be4e63-ae971c582f8c-1000--champions-league-qualifying-fixtures-results-dates-how-it-/">UEFA — calendario de la fase previa de Champions</a></li>
+  </ul>
+</footer>
+
+</div>
