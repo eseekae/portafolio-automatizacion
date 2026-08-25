@@ -1,0 +1,560 @@
+<title>Cartilla del Martes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ink:#131C33;
+  --ink-2:#2A3552;
+  --slate:#5D6883;
+  --slate-2:#8B93A8;
+  --paper:#EDF0F5;
+  --surface:#FFFFFF;
+  --surface-2:#E4E9F1;
+  --line:#C9D2E0;
+  --line-soft:#DDE3EC;
+  --amber:#C4711A;
+  --amber-soft:#F5E3CC;
+  --verde:#1B7554;
+  --verde-soft:#D6EADF;
+  --rojo:#A93B36;
+  --rojo-soft:#F2DAD8;
+
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#E8ECF5;
+    --ink-2:#C3CBDC;
+    --slate:#98A2BC;
+    --slate-2:#6E7893;
+    --paper:#0E1424;
+    --surface:#161E33;
+    --surface-2:#1E273F;
+    --line:#2E3A56;
+    --line-soft:#232D46;
+    --amber:#E8A24E;
+    --amber-soft:#3A2C17;
+    --verde:#4FBE8F;
+    --verde-soft:#132E24;
+    --rojo:#E07A73;
+    --rojo-soft:#33191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E8ECF5;
+  --ink-2:#C3CBDC;
+  --slate:#98A2BC;
+  --slate-2:#6E7893;
+  --paper:#0E1424;
+  --surface:#161E33;
+  --surface-2:#1E273F;
+  --line:#2E3A56;
+  --line-soft:#232D46;
+  --amber:#E8A24E;
+  --amber-soft:#3A2C17;
+  --verde:#4FBE8F;
+  --verde-soft:#132E24;
+  --rojo:#E07A73;
+  --rojo-soft:#33191A;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:17px;
+  line-height:1.62;
+  margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:0 20px 80px}
+.prose{max-width:64ch}
+
+h1,h2,h3,.disp{font-family:var(--f-display);font-weight:900;letter-spacing:-.02em;text-wrap:balance;margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.eyebrow{
+  font-family:var(--f-mono);font-size:.7rem;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--slate);
+}
+
+/* ---------- header ---------- */
+header{
+  border-bottom:3px solid var(--ink);
+  padding:44px 0 22px;
+  margin-bottom:8px;
+}
+.head-top{
+  display:flex;flex-wrap:wrap;gap:10px 18px;
+  align-items:baseline;justify-content:space-between;
+  margin-bottom:18px;
+}
+h1{font-size:clamp(2.6rem,8vw,4.4rem);line-height:.92;text-transform:uppercase}
+h1 .thin{display:block;font-weight:500;font-size:.4em;letter-spacing:.01em;text-transform:none;color:var(--slate);margin-top:14px}
+.stamp{
+  font-family:var(--f-mono);font-size:.72rem;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--amber);
+  border:1.5px solid var(--amber);border-radius:2px;padding:5px 10px;white-space:nowrap;
+}
+
+.aviso{
+  background:var(--surface);
+  border-left:4px solid var(--amber);
+  padding:16px 20px;
+  margin:26px 0 0;
+  font-size:.95rem;
+  color:var(--ink-2);
+}
+.aviso strong{font-family:var(--f-display);font-weight:800;color:var(--ink)}
+
+/* ---------- sections ---------- */
+section{margin-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.sec-head h2{font-size:clamp(1.5rem,4vw,2.1rem);text-transform:uppercase}
+.sec-head .rule{flex:1;height:2px;background:var(--line);align-self:center}
+.sec-sub{color:var(--slate);font-size:.98rem;margin:10px 0 26px;max-width:62ch}
+
+/* ---------- cartilla table ---------- */
+.tw{overflow-x:auto;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:660px;font-size:.9rem}
+thead th{
+  font-family:var(--f-mono);font-size:.66rem;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--slate);text-align:left;
+  padding:12px 14px;border-bottom:2px solid var(--line);background:var(--surface-2);
+  white-space:nowrap;
+}
+tbody td{padding:13px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+td.t-hora{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+td.t-hora small{display:block;font-weight:400;color:var(--slate-2);font-size:.78em;letter-spacing:.02em}
+td.t-match{font-family:var(--f-display);font-weight:700;font-size:.95rem;min-width:210px}
+td.t-match small{display:block;font-family:var(--f-body);font-weight:400;font-size:.82rem;color:var(--slate);margin-top:3px}
+td.t-odd{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.t-odd.fav{color:var(--verde);font-weight:600}
+.torneo{
+  display:inline-block;font-family:var(--f-mono);font-size:.62rem;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;padding:3px 7px;border-radius:2px;
+  background:var(--surface-2);color:var(--slate);white-space:nowrap;
+}
+
+/* ---------- picks ---------- */
+.picks{display:flex;flex-direction:column;gap:20px}
+.pick{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-top:4px solid var(--verde);
+  padding:24px 24px 22px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:6px 22px;
+}
+.pick.tier-b{border-top-color:var(--amber)}
+.pick.tier-c{border-top-color:var(--slate-2)}
+.pick.pass{border-top-color:var(--rojo);opacity:.94}
+
+.rank{
+  font-family:var(--f-display);font-weight:900;font-size:3.1rem;line-height:.8;
+  color:var(--line);letter-spacing:-.05em;grid-row:1 / span 4;
+  font-variant-numeric:tabular-nums;
+}
+.pick.tier-a .rank{color:var(--verde)}
+
+.pick-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;justify-content:space-between}
+.pick-bet{font-family:var(--f-display);font-weight:800;font-size:1.22rem;line-height:1.25;letter-spacing:-.01em}
+.cuota{
+  font-family:var(--f-mono);font-weight:600;font-size:1.5rem;font-variant-numeric:tabular-nums;
+  color:var(--verde);white-space:nowrap;line-height:1;
+}
+.pick.tier-b .cuota{color:var(--amber)}
+.pick.tier-c .cuota,.pick.pass .cuota{color:var(--slate)}
+.pick-meta{
+  font-family:var(--f-mono);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--slate);margin:4px 0 12px;
+}
+.pick-body p{margin:0 0 12px;font-size:.97rem;color:var(--ink-2);max-width:62ch}
+.pick-body p:last-child{margin-bottom:0}
+
+.riesgo{
+  border-left:3px solid var(--rojo);
+  background:var(--rojo-soft);
+  padding:10px 14px;font-size:.9rem;color:var(--ink-2);margin-top:14px;
+}
+.riesgo b{font-family:var(--f-display);font-weight:800;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--rojo);display:block;margin-bottom:3px}
+
+/* value meter */
+.meter{margin:16px 0 4px;max-width:400px}
+.meter-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.meter-lab{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);width:88px;flex:none}
+.meter-bar{flex:1;height:9px;background:var(--surface-2);position:relative;overflow:hidden}
+.meter-fill{position:absolute;inset:0 auto 0 0;background:var(--slate-2)}
+.meter-fill.est{background:var(--verde)}
+.meter-val{font-family:var(--f-mono);font-size:.75rem;font-weight:600;font-variant-numeric:tabular-nums;width:44px;text-align:right;flex:none;color:var(--ink-2)}
+
+/* ---------- boletos ---------- */
+.boletos{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.boleto{
+  position:relative;
+  background:var(--surface);
+  padding:22px 22px 30px;
+  box-shadow:inset 0 0 0 1px var(--line);
+  -webkit-mask:
+    radial-gradient(circle at 7px 0, transparent 6px, #000 6.5px) bottom left / 14px 12px repeat-x,
+    linear-gradient(#000,#000) top left / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(circle at 7px 0, transparent 6px, #000 6.5px) bottom left / 14px 12px repeat-x,
+    linear-gradient(#000,#000) top left / 100% calc(100% - 11px) no-repeat;
+}
+.bol-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-bottom:2px solid var(--ink);padding-bottom:9px;margin-bottom:16px}
+.bol-name{font-family:var(--f-display);font-weight:900;font-size:1.05rem;text-transform:uppercase;letter-spacing:-.01em}
+.bol-folio{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.1em;color:var(--slate-2);white-space:nowrap}
+.legs{list-style:none;margin:0;padding:0}
+.legs li{
+  display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  padding:9px 0;border-bottom:1px dotted var(--line);font-size:.9rem;
+}
+.legs li:last-child{border-bottom:none}
+.leg-txt{color:var(--ink-2)}
+.leg-txt em{display:block;font-style:normal;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--slate-2);margin-top:2px}
+.leg-odd{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+.bol-total{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:2px dashed var(--line);margin-top:14px;padding-top:14px}
+.bol-total .lab{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+.bol-total .big{font-family:var(--f-mono);font-weight:600;font-size:2rem;font-variant-numeric:tabular-nums;line-height:1;color:var(--amber)}
+.bol-stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+.bstat .k{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--slate-2);display:block}
+.bstat .v{font-family:var(--f-mono);font-weight:600;font-size:.95rem;font-variant-numeric:tabular-nums;color:var(--ink)}
+.veredicto{margin-top:15px;font-size:.88rem;color:var(--ink-2);line-height:1.5}
+.veredicto b{font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:.68rem;display:block;margin-bottom:4px}
+.veredicto.ok b{color:var(--verde)}
+.veredicto.mid b{color:var(--amber)}
+.veredicto.bad b{color:var(--rojo)}
+.bstat .v.ok-v{color:var(--verde)}
+.bstat .v.bad-v{color:var(--rojo)}
+.mg-list .p.ok-v{color:var(--verde)}
+.mg-list .b i.g{background:var(--verde)}
+
+/* ---------- margen ---------- */
+.margen{background:var(--surface);border:1px solid var(--line);padding:26px 26px 22px}
+.mg-list{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:11px}
+.mg-list li{display:grid;grid-template-columns:78px 1fr 62px;align-items:center;gap:14px}
+.mg-list .n{font-family:var(--f-mono);font-size:.76rem;font-weight:600;color:var(--ink-2);letter-spacing:.04em}
+.mg-list .b{height:14px;background:var(--surface-2);position:relative;overflow:hidden}
+.mg-list .b i{position:absolute;inset:0 auto 0 0;background:var(--rojo);display:block}
+.mg-list .p{font-family:var(--f-mono);font-size:.82rem;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;color:var(--rojo)}
+.punch{
+  font-family:var(--f-display);font-weight:800;font-size:1.12rem;line-height:1.4;
+  letter-spacing:-.01em;margin-top:24px;padding-top:20px;border-top:2px solid var(--line);
+  max-width:56ch;
+}
+
+/* ---------- banca ---------- */
+.banca{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2px;background:var(--line);border:1px solid var(--line)}
+.banca li{background:var(--surface);padding:20px}
+.banca .k{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:7px}
+.banca .t{font-size:.93rem;color:var(--ink-2);line-height:1.5}
+
+footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--line);font-size:.84rem;color:var(--slate)}
+footer a{color:var(--slate);text-decoration:underline;text-underline-offset:2px}
+footer a:hover,footer a:focus-visible{color:var(--amber)}
+footer ul{margin:10px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+@media (max-width:620px){
+  body{font-size:16px}
+  .pick{grid-template-columns:1fr;padding:20px}
+  .rank{grid-row:auto;font-size:2.2rem;margin-bottom:2px}
+  .mg-list li{grid-template-columns:70px 1fr 54px;gap:10px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="head-top">
+    <span class="eyebrow">Martes 25 de agosto de 2026 &middot; Horarios de Chile</span>
+    <span class="stamp">Análisis independiente</span>
+  </div>
+  <h1>Cartilla<br>del Martes
+    <span class="thin">Cinco partidos, cinco apuestas rankeadas y cuatro boletos combinados — con la matemática a la vista.</span>
+  </h1>
+</header>
+
+<div class="aviso">
+  <strong>Lee esto antes.</strong> Las cuotas de abajo vienen de comparadores públicos y casas de análisis, no del sitio de Betano — el entorno donde se armó esta cartilla tiene bloqueado el acceso directo a su web. Las cuotas se mueven durante el día. <strong>Verifica cada precio en tu app antes de jugar</strong>: si el número bajó, la apuesta que estaba buena puede ya no estarlo.
+</div>
+
+<section>
+  <div class="sec-head"><h2>La cartilla</h2><span class="rule"></span></div>
+  <p class="sec-sub">Todo lo jugable de hoy en un cuadro. Tres vueltas de playoff de Champions, la vuelta de octavos de Libertadores y un partido de LaLiga.</p>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>Hora</th><th>Partido</th><th>Torneo</th><th style="text-align:right">1</th><th style="text-align:right">X</th><th style="text-align:right">2</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="t-hora">12:45<small>16:45 UTC</small></td>
+          <td class="t-match">Sabah — Hapoel Be'er Sheva<small>Ida: Hapoel 2-1 · Bakú</small></td>
+          <td><span class="torneo">UCL Playoff</span></td>
+          <td class="t-odd fav">1.85</td><td class="t-odd">3.90</td><td class="t-odd">3.95</td>
+        </tr>
+        <tr>
+          <td class="t-hora">15:00<small>19:00 UTC</small></td>
+          <td class="t-match">Bodø/Glimt — NEC Nijmegen<small>Ida: Bodø 3-1 · Aspmyra</small></td>
+          <td><span class="torneo">UCL Playoff</span></td>
+          <td class="t-odd fav">1.50</td><td class="t-odd">4.30</td><td class="t-odd">4.75</td>
+        </tr>
+        <tr>
+          <td class="t-hora">15:00<small>19:00 UTC</small></td>
+          <td class="t-match">LASK — Celtic<small>Ida: Celtic 3-0 · Raiffeisen Arena</small></td>
+          <td><span class="torneo">UCL Playoff</span></td>
+          <td class="t-odd fav">1.95</td><td class="t-odd">3.90</td><td class="t-odd">3.35</td>
+        </tr>
+        <tr>
+          <td class="t-hora">15:00<small>19:00 UTC</small></td>
+          <td class="t-match">Valencia — Real Betis<small>Mestalla</small></td>
+          <td><span class="torneo">LaLiga</span></td>
+          <td class="t-odd">2.65</td><td class="t-odd">3.30</td><td class="t-odd">2.70</td>
+        </tr>
+        <tr>
+          <td class="t-hora">20:30<small>00:30 UTC</small></td>
+          <td class="t-match">Independiente del Valle — Tolima<small>Ida: IDV 1-0 · Banco Guayaquil</small></td>
+          <td><span class="torneo">Libertadores</span></td>
+          <td class="t-odd fav">1.59</td><td class="t-odd">3.90</td><td class="t-odd">6.00</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>El top 5</h2><span class="rule"></span></div>
+  <p class="sec-sub">Ordenadas por valor, no por probabilidad. Una apuesta a 1.90 que debería pagar 1.70 vale más que una a 1.13 que debería pagar 1.12.</p>
+
+  <div class="picks">
+
+    <article class="pick tier-a">
+      <div class="rank">01</div>
+      <div class="pick-head">
+        <span class="pick-bet">Over 3.5 goles &middot; Bodø/Glimt — NEC</span>
+        <span class="cuota">1.90</span>
+      </div>
+      <div class="pick-meta">La mejor del día · 15:00</div>
+      <div class="pick-body">
+        <p>Bodø/Glimt lleva ocho triunfos seguidos en Aspmyra en fase previa de Champions promediando tres goles por partido, y está invicto en sus últimos 16. NEC llega dos goles abajo: no puede especular, tiene que salir a buscar el partido desde el arranque.</p>
+        <p>Ese es el guion más fiable que existe para goles — local dominante en su cancha más un visitante <em>obligado</em> a atacar. NEC abre espacios, Bodø castiga en transición, y el marcador se despega. La cuota implica 52,6%; con este contexto el escenario real está por encima.</p>
+        <div class="meter">
+          <div class="meter-row"><span class="meter-lab">Implícita</span><span class="meter-bar"><span class="meter-fill" style="width:52.6%"></span></span><span class="meter-val">52,6%</span></div>
+          <div class="meter-row"><span class="meter-lab">Mi estimado</span><span class="meter-bar"><span class="meter-fill est" style="width:58%"></span></span><span class="meter-val">~58%</span></div>
+        </div>
+        <div class="riesgo"><b>El peligro</b>Si Bodø marca temprano, administra y el partido muere en un 2-0 cómodo. Versión suave del mismo razonamiento: Over 2.5 (~1.38) o Ambos marcan (1.45).</div>
+      </div>
+    </article>
+
+    <article class="pick tier-a">
+      <div class="rank">02</div>
+      <div class="pick-head">
+        <span class="pick-bet">Over 2.5 goles &middot; LASK — Celtic</span>
+        <span class="cuota">1.57</span>
+      </div>
+      <div class="pick-meta">Alta confianza · 15:00</div>
+      <div class="pick-body">
+        <p>La llave está muerta: Celtic ganó 3-0 en Glasgow. Eso cambia el comportamiento de los dos equipos. Celtic rota, baja la intensidad y juega a no lesionarse. LASK necesita tres goles y sale a matarse desde el minuto uno, con el respaldo de una racha goleadora en Austria.</p>
+        <p>Resultado: partido abierto en las dos direcciones. LASK se vuelca, y un Celtic con espacios a la espalda es letal al contragolpe. <em>Ambos marcan</em> a 1.57 es literalmente la misma apuesta con la misma lógica — elige la que mejor pague en tu app.</p>
+        <div class="meter">
+          <div class="meter-row"><span class="meter-lab">Implícita</span><span class="meter-bar"><span class="meter-fill" style="width:63.7%"></span></span><span class="meter-val">63,7%</span></div>
+          <div class="meter-row"><span class="meter-lab">Mi estimado</span><span class="meter-bar"><span class="meter-fill est" style="width:68%"></span></span><span class="meter-val">~68%</span></div>
+        </div>
+        <div class="riesgo"><b>El peligro</b>Que Celtic salga con titulares, haga el 1-0 temprano y el partido se apague en un trámite sin urgencia por ningún lado.</div>
+      </div>
+    </article>
+
+    <article class="pick tier-b">
+      <div class="rank">03</div>
+      <div class="pick-head">
+        <span class="pick-bet">Doble oportunidad 1X &middot; Independiente del Valle</span>
+        <span class="cuota">~1.13</span>
+      </div>
+      <div class="pick-meta">El ancla de las combinadas · 20:30</div>
+      <div class="pick-body">
+        <p>IDV llega con catorce triunfos consecutivos, juega en casa, en altura, y le sirve el empate. Tolima está obligado a ganar por dos para pasar en los 90 — en Libertadores no hay gol de visitante desde 2022 — y cotiza a 6.00 por algo.</p>
+        <p>Ojo con el detalle que casi todos pasan por alto: <strong>IDV gana a 1.59 no es valor</strong>, justamente porque a IDV le basta el empate y los equipos que solo necesitan empatar tienden a administrar. Por eso el 1X es la apuesta estructuralmente correcta: gana con el resultado que IDV realmente está buscando, no con el que tú quieres que busque.</p>
+        <div class="riesgo"><b>El peligro</b>La cuota es baja: sirve como pata de combinada, no como single fuerte. A 1.13 necesitas acertar 88,5% de las veces solo para empatar la mano.</div>
+      </div>
+    </article>
+
+    <article class="pick tier-b">
+      <div class="rank">04</div>
+      <div class="pick-head">
+        <span class="pick-bet">LASK gana &middot; LASK — Celtic</span>
+        <span class="cuota">1.95</span>
+      </div>
+      <div class="pick-meta">Contrarian · Stake chico · 15:00</div>
+      <div class="pick-body">
+        <p>Fíjate en la rareza: el mercado pone a LASK como favorito local a 1.95 frente a un Celtic a 3.35. Eso pasa porque la casa ya sabe que Celtic no necesita el partido, y lo metió en el precio.</p>
+        <p>Aun así, el efecto "partido intrascendente" se suele subestimar. Celtic rota seis o siete, va sin urgencia y con la cabeza en la liga escocesa; LASK juega la final de su temporada delante de su gente. A 1.95 es una moneda al aire disfrazada de favorito — y las monedas al aire a 1.95 son jugables.</p>
+        <div class="riesgo"><b>El peligro</b>Es exactamente eso: una moneda al aire. Celtic rotado sigue teniendo más plantel que LASK. Media unidad, no más.</div>
+      </div>
+    </article>
+
+    <article class="pick tier-c">
+      <div class="rank">05</div>
+      <div class="pick-head">
+        <span class="pick-bet">Goles &middot; Sabah — Hapoel Be'er Sheva</span>
+        <span class="cuota">Over 2.5 / BTTS</span>
+      </div>
+      <div class="pick-meta">Solo si quieres acción · 12:45</div>
+      <div class="pick-body">
+        <p>Sabah cotiza 1.85 en casa perdiendo 1-2: necesita ganar por dos para pasar en los 90, o por uno para forzar el alargue. Los modelos reparten 47% / 10% / 43%, y ese empate tan bajo es la señal importante — el mercado espera un partido abierto y decisivo, no un trámite.</p>
+        <p>Los dos necesitan goles: Sabah por obligación, Hapoel porque un gol suyo obliga a Sabah a hacer tres. Juega los goles, no el resultado.</p>
+        <div class="riesgo"><b>El peligro</b>Liga azerí contra liga israelí: varianza altísima y muy poca información fiable de forma real. El 1X2 acá es lotería pura.</div>
+      </div>
+    </article>
+
+    <article class="pick pass">
+      <div class="rank">✕</div>
+      <div class="pick-head">
+        <span class="pick-bet">Paso &middot; Valencia — Real Betis</span>
+        <span class="cuota">2.65 / 3.30 / 2.70</span>
+      </div>
+      <div class="pick-meta">Fuera del top a propósito · 15:00</div>
+      <div class="pick-body">
+        <p>Un 2.65 / 3.30 / 2.70 es una moneda al aire de verdad, y no hay nada en los datos que rompa el empate. Betis llega mejor — tres triunfos en los últimos cinco, plantel de Champions, Pellegrini — pero el Valencia de Corberán es bloque bajo y Mestalla nunca es cómodo. Valor cero en el 1X2.</p>
+        <p>Si igual quieres entrar: el empate a 3.30 tiene mérito real en un partido parejo con local defensivo, y el Under 2.5 encaja mejor con el estilo de Corberán que cualquier lado del resultado. Pero la jugada correcta es no jugarlo.</p>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Los boletos</h2><span class="rule"></span></div>
+  <p class="sec-sub">Cuatro combinadas de menos a más riesgo. En cada una va la cuota total, el <em>equilibrio</em> (el porcentaje que necesitas acertar para no perder plata) y mi probabilidad estimada. La tercera cifra es la importante: qué pasa con el boleto si mi estimación se equivoca en apenas 3 puntos por pata — un error perfectamente normal.</p>
+
+  <div class="boletos">
+
+    <article class="boleto">
+      <div class="bol-top"><span class="bol-name">La coherente</span><span class="bol-folio">2 PATAS</span></div>
+      <ul class="legs">
+        <li><span class="leg-txt">Over 3.5 goles<em>Bodø/Glimt — NEC</em></span><span class="leg-odd">1.90</span></li>
+        <li><span class="leg-txt">Over 2.5 goles<em>LASK — Celtic</em></span><span class="leg-odd">1.57</span></li>
+      </ul>
+      <div class="bol-total"><span class="lab">Cuota total</span><span class="big">2.98</span></div>
+      <div class="bol-stats">
+        <span class="bstat"><span class="k">Equilibrio</span><span class="v">33,5%</span></span>
+        <span class="bstat"><span class="k">Estimado</span><span class="v">39,4%</span></span>
+        <span class="bstat"><span class="k">Si fallo 3 pts</span><span class="v ok-v">+6,6%</span></span>
+      </div>
+      <p class="veredicto ok"><b>La mejor del día</b>Las dos patas comparten el mismo motor: un equipo obligado a remontar abre el partido. Si la tesis es correcta, entran las dos juntas. Y lo decisivo — es la única de las cuatro que <strong>sigue siendo rentable aunque me equivoque 3 puntos en cada pata</strong>. Con dos patas, un error tuyo todavía cabe dentro del margen.</p>
+    </article>
+
+    <article class="boleto">
+      <div class="bol-top"><span class="bol-name">La conservadora</span><span class="bol-folio">3 PATAS</span></div>
+      <ul class="legs">
+        <li><span class="leg-txt">IDV no pierde (1X)<em>IDV — Tolima</em></span><span class="leg-odd">1.13</span></li>
+        <li><span class="leg-txt">Over 2.5 goles<em>LASK — Celtic</em></span><span class="leg-odd">1.57</span></li>
+        <li><span class="leg-txt">Bodø/Glimt gana<em>Bodø/Glimt — NEC</em></span><span class="leg-odd">1.50</span></li>
+      </ul>
+      <div class="bol-total"><span class="lab">Cuota total</span><span class="big">2.66</span></div>
+      <div class="bol-stats">
+        <span class="bstat"><span class="k">Equilibrio</span><span class="v">37,6%</span></span>
+        <span class="bstat"><span class="k">Estimado</span><span class="v">39,1%</span></span>
+        <span class="bstat"><span class="k">Si fallo 3 pts</span><span class="v bad-v">−8,5%</span></span>
+      </div>
+      <p class="veredicto mid"><b>Cómoda de ver, frágil por dentro</b>Tres patas que probablemente entren, y en el papel apenas pasa el equilibrio. El problema es el colchón: basta que me equivoque un poco por pata para que se dé vuelta a −8,5%. La pata de IDV a 1.13 aporta seguridad, pero paga menos de lo que vale.</p>
+    </article>
+
+    <article class="boleto">
+      <div class="bol-top"><span class="bol-name">La agresiva</span><span class="bol-folio">3 PATAS</span></div>
+      <ul class="legs">
+        <li><span class="leg-txt">Over 3.5 goles<em>Bodø/Glimt — NEC</em></span><span class="leg-odd">1.90</span></li>
+        <li><span class="leg-txt">LASK gana<em>LASK — Celtic</em></span><span class="leg-odd">1.95</span></li>
+        <li><span class="leg-txt">IDV gana<em>IDV — Tolima</em></span><span class="leg-odd">1.59</span></li>
+      </ul>
+      <div class="bol-total"><span class="lab">Cuota total</span><span class="big">5.89</span></div>
+      <div class="bol-stats">
+        <span class="bstat"><span class="k">Equilibrio</span><span class="v">17,0%</span></span>
+        <span class="bstat"><span class="k">Estimado</span><span class="v">18,1%</span></span>
+        <span class="bstat"><span class="k">Si fallo 3 pts</span><span class="v bad-v">−9,5%</span></span>
+      </div>
+      <p class="veredicto bad"><b>Paga bonito, aguanta poco</b>Se ve rica en la boleta y en el papel pasa raspando. Pero descansa sobre <em>LASK gana</em>, que yo mismo describí como una moneda al aire: si esa pata está sobrevalorada apenas 3 puntos, el boleto entero pasa a −9,5%. Cuarto de unidad como máximo.</p>
+    </article>
+
+    <article class="boleto">
+      <div class="bol-top"><span class="bol-name">La bala perdida</span><span class="bol-folio">5 PATAS</span></div>
+      <ul class="legs">
+        <li><span class="leg-txt">Over 3.5 goles<em>Bodø/Glimt — NEC</em></span><span class="leg-odd">1.90</span></li>
+        <li><span class="leg-txt">Ambos marcan<em>LASK — Celtic</em></span><span class="leg-odd">1.57</span></li>
+        <li><span class="leg-txt">Sabah gana<em>Sabah — Hapoel</em></span><span class="leg-odd">1.85</span></li>
+        <li><span class="leg-txt">IDV gana<em>IDV — Tolima</em></span><span class="leg-odd">1.59</span></li>
+        <li><span class="leg-txt">Empate<em>Valencia — Betis</em></span><span class="leg-odd">3.30</span></li>
+      </ul>
+      <div class="bol-total"><span class="lab">Cuota total</span><span class="big">28.95</span></div>
+      <div class="bol-stats">
+        <span class="bstat"><span class="k">Equilibrio</span><span class="v">3,45%</span></span>
+        <span class="bstat"><span class="k">Estimado</span><span class="v">3,52%</span></span>
+        <span class="bstat"><span class="k">Si fallo 3 pts</span><span class="v bad-v">−26,0%</span></span>
+      </div>
+      <p class="veredicto bad"><b>Entretención, no inversión</b>Mira esas tres cifras juntas: en el papel pasa el equilibrio por siete centésimas, y con un error mínimo por pata se desploma a −26%. Eso no es una apuesta con valor, es una apuesta cuyo resultado depende por completo de que yo tenga razón cinco veces seguidas. Stake de lotería: 0,5% de banca y ni un peso más.</p>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>La matemática</h2><span class="rule"></span></div>
+  <p class="sec-sub">Esto es lo que hace que las combinadas se sientan gratis y no lo sean.</p>
+  <div class="margen">
+    <p class="prose" style="margin:0;color:var(--ink-2);font-size:.97rem">Cada cuota que ves ya trae el margen de la casa incorporado — entre 5% y 7% por partido en fútbol. Ese margen no se suma cuando combinas: <strong>se multiplica</strong>. Así se ve el porcentaje que juega en tu contra según cuántas patas metas:</p>
+    <ul class="mg-list">
+      <li><span class="n">1 pata</span><span class="b"><i style="width:15%"></i></span><span class="p">~6%</span></li>
+      <li><span class="n">2 patas</span><span class="b"><i style="width:29%"></i></span><span class="p">~11%</span></li>
+      <li><span class="n">3 patas</span><span class="b"><i style="width:42%"></i></span><span class="p">~17%</span></li>
+      <li><span class="n">5 patas</span><span class="b"><i style="width:65%"></i></span><span class="p">~26%</span></li>
+      <li><span class="n">8 patas</span><span class="b"><i style="width:100%"></i></span><span class="p">~40%</span></li>
+    </ul>
+    <p class="prose" style="margin:26px 0 0;color:var(--ink-2);font-size:.97rem"><strong>Y ahora la parte que casi nadie menciona: tus errores se multiplican igual que las cuotas.</strong> Si mis estimaciones de arriba están 3 puntos porcentuales pasadas de optimistas — un error chico, del todo normal cuando estimas a ojo — mira qué le pasa a cada boleto:</p>
+    <ul class="mg-list">
+      <li><span class="n">2 patas</span><span class="b"><i class="g" style="width:33%"></i></span><span class="p ok-v">+6,6%</span></li>
+      <li><span class="n">3 patas (cons.)</span><span class="b"><i style="width:33%"></i></span><span class="p">−8,5%</span></li>
+      <li><span class="n">3 patas (agr.)</span><span class="b"><i style="width:37%"></i></span><span class="p">−9,5%</span></li>
+      <li><span class="n">5 patas</span><span class="b"><i style="width:100%"></i></span><span class="p">−26,0%</span></li>
+    </ul>
+    <p class="punch">Ahí está la razón real para no encadenar patas: no es solo que la casa te cobre más margen, es que cada pata extra multiplica también tu propio margen de error. Los cinco singles del top son la forma más limpia de expresar exactamente la misma opinión. Si vas a combinar igual — y todos combinamos — que sean pocas patas y que compartan lógica entre ellas.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Banca</h2><span class="rule"></span></div>
+  <p class="sec-sub">La parte aburrida es la que decide si terminas el mes arriba o abajo.</p>
+  <ul class="banca">
+    <li><span class="k">Stake plano</span><span class="t">1 a 2% de banca por cada single del top. Nada de subir el monto porque "esta va segura".</span></li>
+    <li><span class="k">Techo de combinadas</span><span class="t">Máximo 0,5% en la bala perdida y 0,25% en la agresiva. Son gastos de entretención, presupuéstalos como tales.</span></li>
+    <li><span class="k">No persigas</span><span class="t">Si se cae la primera, la respuesta nunca es doblar el stake en la siguiente. Ahí es donde se pierden las bancas.</span></li>
+    <li><span class="k">Registra todo</span><span class="t">Cuota, monto, resultado. Sin registro no tienes idea de si ganas o solo recuerdas los aciertos.</span></li>
+    <li><span class="k">Verifica el precio</span><span class="t">Si la cuota bajó respecto a la de esta cartilla, el valor se fue. Deja pasar esa apuesta sin drama.</span></li>
+    <li><span class="k">Cierra el día</span><span class="t">Define antes de empezar cuánto vas a jugar hoy en total. Cuando se acaba, se acabó, ganes o pierdas.</span></li>
+  </ul>
+</section>
+
+<footer>
+  <p>Análisis independiente elaborado a partir de cuotas públicas de comparadores y casas de análisis, recopiladas el 25 de agosto de 2026. No está afiliado ni respaldado por Betano ni por ninguna casa de apuestas. Ninguna apuesta es segura y ningún análisis cambia eso: apuesta solo lo que puedas permitirte perder.</p>
+  <ul>
+    <li><a href="https://www.sportsgambler.com/betting-tips/football/bodo-glimt-vs-nec-nijmegen-prediction-lineups-odds-2026-08-25/">Sportsgambler — Bodø/Glimt vs NEC, cuotas y previa</a></li>
+    <li><a href="https://footballwhispers.com/blog/lask-vs-celtic-prediction-25-08-2026/">Football Whispers — LASK vs Celtic, previa y cuotas</a></li>
+    <li><a href="https://www.sportytrader.com/en/betting-tips/sabah-hapoel-beer-sheva-367799/">Sportytrader — Sabah vs Hapoel Be'er Sheva</a></li>
+    <li><a href="https://www.sportytrader.es/pronosticos/valencia-real-betis-367757/">Sportytrader — Valencia vs Real Betis</a></li>
+    <li><a href="https://www.sportytrader.com/es/pronosticos/independiente-del-valle-deportes-tolima-367905/">Sportytrader — Independiente del Valle vs Tolima</a></li>
+    <li><a href="https://www.infobae.com/colombia/deportes/2026/08/24/deportes-tolima-visitara-a-independiente-del-valle-en-la-vuelta-de-los-octavos-de-final-de-la-libertadores-hora-y-donde-ver-el-partido/">Infobae — horario y contexto de la vuelta en Libertadores</a></li>
+    <li><a href="https://news.bet365.com/en-gb/article/how-to-watch-bodoglimt-v-nec-nijmegen-live-stream-tv-channel-and-kick-off-time/2026082506583174129">bet365 News — horario de Bodø/Glimt vs NEC</a></li>
+  </ul>
+</footer>
+
+</div>
