@@ -18,9 +18,58 @@ decidir dirección de puntada, corregir a ojo. Este repo cubre lo otro:
 ## Instalación
 
 ```bash
-pip install -r requirements.txt
-python disenos/demo_emblema.py
+pip install -e .          # deja disponible el comando `matriz`
 pytest -q
+```
+
+## Conversor por lotes
+
+Convierte entre 47 formatos de entrada y 19 de salida. **No redimensiona ni
+re-digitaliza**: reescribe las mismas puntadas en otro contenedor.
+
+```bash
+# 40 archivos .pes a .jef con un comando, replicando la estructura de carpetas
+matriz convertir catalogo/ -r --a jef -o convertidos/
+
+# comodines, o archivos sueltos
+matriz convertir *.pes --a jef
+
+# ver qué haría sin escribir nada
+matriz convertir catalogo/ --a dst -o salida/ --seco
+
+matriz formatos          # lista de formatos soportados
+```
+
+| Opción | Qué hace |
+|---|---|
+| `-r` | incluye subcarpetas |
+| `-o DIR` | carpeta de destino (por defecto, junto al original) |
+| `--plano` | vuelca todo en una carpeta; avisa si hay nombres que colisionan |
+| `--sobrescribir` | reemplaza archivos existentes (por defecto los omite) |
+| `--seco` | simulación |
+| `--sin-verificar` | omite la relectura de control |
+| `--version-pes {1,6}` | v1 = máxima compatibilidad con Brother antiguas |
+
+**Lo que lo diferencia de un conversor cualquiera:**
+
+- **Verifica lo que escribe.** Relee cada archivo generado y compara puntadas
+  y dimensiones contra el original. Un binario corrupto pesa igual que uno
+  bueno y no se queja hasta que la máquina lo rechaza.
+- **Aísla los errores.** Un archivo corrupto entre 40 no bota el lote.
+- **No pierde los colores.** `.dst`, `.exp` y `.u01` no guardan color en el
+  binario: el conversor emite el `.edr` / `.inf` acompañante.
+- **No pisa nada en silencio.** Detecta colisiones de nombre y nunca escribe
+  sobre el archivo de origen.
+
+> **Límite real de convertir:** un archivo de bordado guarda *puntadas*, no
+> objetos. Es como pasar un JPG a PNG — cambias el envase, no recuperas el
+> vector. Por eso convertir nunca permite reescalar más de ±10-20% sin
+> arruinar la densidad. Reescalar de verdad exige re-digitalizar.
+
+## Generación de diseños
+
+```bash
+python disenos/demo_emblema.py
 ```
 
 ## Arquitectura
@@ -29,6 +78,9 @@ Capas con dependencia en un solo sentido. La capa de dominio no conoce
 formatos de archivo; solo `patron.py` toca pyembroidery.
 
 ```
+cli.py              subcomandos: convertir · [futuro] digitalizar, redimensionar
+convertir.py        motor de conversión por lotes (puro, sin I/O de consola)
+
 disenos/*.py        definición del diseño (geometría + colores + orden)
      |
 puntadas.py         STRATEGY: geometría -> corridas de puntadas
@@ -67,9 +119,21 @@ abajo. `exportar.py` invierte el eje solo para el PNG de preview.
 Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 `N ≈ A / (d · l)`. Tiempo de bordado: `t = N / v`, con `v ≈ 700 ppm.`
 
+## Hoja de ruta
+
+1. **Conversor por lotes** — hecho
+2. **Auto-digitizer**: imagen (PNG/JPG/SVG) → matriz
+   - segmentación → vectorización → limpieza
+   - decisión de puntada por región → ordenamiento de objetos y colores
+   - mapeo a hilos reales (Madeira / Isacord)
+3. **Redimensionador** con recálculo de densidad
+4. Integración de todo en un solo programa distribuible
+
 ## Estado actual
 
-Implementado y testeado (9 tests):
+Implementado y testeado (27 tests):
+
+- Conversor por lotes con verificación por relectura
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
 - Puntada corrida y triple
