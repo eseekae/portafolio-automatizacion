@@ -11,7 +11,15 @@
 name: Ejecutables
 
 on:
+  # Publicar a mano desde la pestana Actions, sin usar git: se escribe la
+  # version y el workflow crea la etiqueta y la Release por si mismo.
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version a publicar (ej: v0.2.0). Vacio = solo compilar, sin publicar.'
+        required: false
+        default: ''
+  # O automaticamente al subir una etiqueta con git.
   push:
     tags: ["v*"]
 
@@ -101,9 +109,10 @@ jobs:
           retention-days: 30
 
   publicar:
-    # Solo al etiquetar una version: adjunta los tres binarios a la Release.
+    # Adjunta los tres binarios a una Release. Se activa al subir una etiqueta,
+    # o al lanzar el workflow a mano indicando una version.
     needs: construir
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.version != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -113,7 +122,10 @@ jobs:
           path: binarios
       - uses: softprops/action-gh-release@v2
         with:
-          name: Conversor de matrices de bordado ${{ github.ref_name }}
+          # En un lanzamiento manual la etiqueta aun no existe: la accion la
+          # crea sobre el commit actual.
+          tag_name: ${{ inputs.version || github.ref_name }}
+          name: Conversor de matrices de bordado ${{ inputs.version || github.ref_name }}
           files: binarios/**/*
           generate_release_notes: true
           body: |

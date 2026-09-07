@@ -166,11 +166,20 @@ pyinstaller empaquetar/conversor.spec --noconfirm   # queda en dist/
 > en Windows. Por eso `.github/workflows/ejecutables.yml` construye los tres
 > en runners separados.
 
-**Publicar una versión** (deja los binarios en la página de descargas):
+**Publicar una versión** (deja los binarios en la página de descargas). Dos
+formas, la primera sin usar git:
 
-```bash
-git tag v0.2.0 && git push origin v0.2.0
-```
+1. Pestaña **Actions → Ejecutables → Run workflow**, escribes la versión
+   (`v0.2.0`) y le das a correr. El workflow compila los tres sistemas, crea
+   la etiqueta y publica la Release.
+2. O con git, si prefieres:
+
+   ```bash
+   git tag v0.2.0 && git push origin v0.2.0
+   ```
+
+Si dejas el campo de versión vacío, solo compila y deja los ejecutables como
+artefactos, sin publicar nada.
 
 Sin empaquetar, la misma ventana se abre con `matriz-gui` o
 `python -m bordado.gui`.
