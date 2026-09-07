@@ -44,9 +44,11 @@ Listo. Puedes dejar el `.exe` en el Escritorio o donde te acomode.
 
 ## Linux
 
+Descarga **`ConversorBordado-linux`** y dale permiso de ejecución:
+
 ```bash
-chmod +x ConversorBordado
-./ConversorBordado
+chmod +x ConversorBordado-linux
+./ConversorBordado-linux
 ```
 
 ---

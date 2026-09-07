@@ -61,7 +61,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath "dist/${{ matrix.artefacto }}" -PassThru
+          # Start-Process resuelve rutas relativas contra el directorio del
+          # proceso .NET, que no es el $PWD de PowerShell. Se pasa absoluta.
+          $exe = (Resolve-Path "dist/${{ matrix.artefacto }}").Path
+          $p = Start-Process -FilePath $exe -PassThru
           Start-Sleep -Seconds 15
           if ($p.HasExited) {
             Write-Error "El ejecutable murio al arrancar (codigo $($p.ExitCode))"
@@ -76,12 +79,24 @@ jobs:
           cd dist
           zip -qry ConversorBordado-macos.zip ConversorBordado.app
 
+      # Los adjuntos de una Release se nombran por su basename, y los binarios
+      # de macOS y Linux salen ambos como "ConversorBordado". Se renombran aqui
+      # para que no se pisen entre si al publicarlos.
+      - name: Preparar entrega
+        shell: bash
+        run: |
+          mkdir -p entrega
+          case "${{ matrix.nombre }}" in
+            windows) cp dist/ConversorBordado.exe       entrega/ConversorBordado.exe ;;
+            macos)   cp dist/ConversorBordado-macos.zip entrega/ConversorBordado-macos.zip ;;
+            linux)   cp dist/ConversorBordado           entrega/ConversorBordado-linux ;;
+          esac
+          ls -lh entrega
+
       - uses: actions/upload-artifact@v4
         with:
           name: ConversorBordado-${{ matrix.nombre }}
-          path: |
-            bordado/dist/${{ matrix.artefacto }}
-            bordado/dist/ConversorBordado-macos.zip
+          path: bordado/entrega/*
           if-no-files-found: error
           retention-days: 30
 
@@ -98,5 +113,19 @@ jobs:
           path: binarios
       - uses: softprops/action-gh-release@v2
         with:
+          name: Conversor de matrices de bordado ${{ github.ref_name }}
           files: binarios/**/*
           generate_release_notes: true
+          body: |
+            Programa para convertir matrices de bordado entre formatos por lotes.
+            Un solo archivo: no necesita instalador ni tener Python.
+
+            | Sistema | Descarga |
+            |---|---|
+            | Windows | `ConversorBordado.exe` |
+            | macOS | `ConversorBordado-macos.zip` |
+            | Linux | `ConversorBordado-linux` |
+
+            **Instrucciones de instalacion, incluido que hacer con el aviso de
+            Windows SmartScreen y con Gatekeeper en macOS:**
+            https://github.com/eseekae/portafolio-automatizacion/tree/main/bordado#descargar-e-instalar
