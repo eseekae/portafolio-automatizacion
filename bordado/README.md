@@ -15,10 +15,35 @@ decidir dirección de puntada, corregir a ojo. Este repo cubre lo otro:
   parches con texto — donde la geometría es una fórmula, no un dibujo.
 - **Ficha técnica y empaquetado**: PNG de preview, secuencia de hilos, ZIP.
 
+## Aplicación de escritorio (ejecutable)
+
+Ventana para quien no usa terminal: eliges una carpeta, eliges el formato y
+convierte todo. Los archivos que ya están en ese formato se omiten solos.
+
+**Descargar:** pestaña *Actions* → *Ejecutables* → último build → artefactos
+`ConversorBordado-windows` (`.exe`), `-macos` (`.app`) o `-linux`. Al publicar
+una etiqueta `v*` quedan además adjuntos a la Release.
+
+**Generarlo tú mismo** (en el sistema operativo de destino):
+
+```bash
+pip install -e ".[build]"
+pyinstaller empaquetar/conversor.spec --noconfirm
+# el ejecutable queda en dist/
+```
+
+> **PyInstaller no compila de forma cruzada.** Empaqueta el intérprete nativo
+> de la máquina donde corre, así que un `.exe` de Windows tiene que generarse
+> en Windows. Por eso el workflow `.github/workflows/ejecutables.yml` construye
+> los tres en runners separados.
+
+Sin empaquetar, la misma ventana se abre con `matriz-gui` o
+`python -m bordado.gui`.
+
 ## Instalación
 
 ```bash
-pip install -e .          # deja disponible el comando `matriz`
+pip install -e .          # deja disponible `matriz` y `matriz-gui`
 pytest -q
 ```
 
@@ -78,6 +103,8 @@ Capas con dependencia en un solo sentido. La capa de dominio no conoce
 formatos de archivo; solo `patron.py` toca pyembroidery.
 
 ```
+gui/app.py          ventana tkinter: solo widgets y presentación
+gui/controlador.py  hilo trabajador + cola de eventos (probable sin pantalla)
 cli.py              subcomandos: convertir · [futuro] digitalizar, redimensionar
 convertir.py        motor de conversión por lotes (puro, sin I/O de consola)
 
@@ -121,7 +148,7 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Hoja de ruta
 
-1. **Conversor por lotes** — hecho
+1. **Conversor por lotes** — hecho (CLI + ventana + ejecutable)
 2. **Auto-digitizer**: imagen (PNG/JPG/SVG) → matriz
    - segmentación → vectorización → limpieza
    - decisión de puntada por región → ordenamiento de objetos y colores
@@ -131,9 +158,10 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (27 tests):
+Implementado y testeado (40 tests):
 
 - Conversor por lotes con verificación por relectura
+- Aplicación de escritorio y empaquetado a ejecutable
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
 - Puntada corrida y triple

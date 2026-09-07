@@ -20,6 +20,7 @@ LIMITE REAL DE LA CONVERSION:
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -170,7 +171,7 @@ def convertir_archivo(origen: Path, destino: Path, formato: str,
         return r
     if destino.exists() and not sobrescribir:
         r.estado = "omitido"
-        r.detalle = "ya existe (usa --sobrescribir)"
+        r.detalle = "ya existe en el destino"
         return r
 
     # ---- Lectura ----
@@ -263,18 +264,33 @@ def _verificar(destino: Path, r: Resultado) -> str:
 
 def convertir_lote(archivos: list[Path], formato: str,
                    dir_salida: Path | None = None, raiz: Path | None = None,
-                   plano: bool = False, **kwargs) -> list[Resultado]:
-    """Convierte una lista de archivos. Detecta colisiones de nombre."""
+                   plano: bool = False,
+                   progreso: Callable[[int, int, Resultado], None] | None = None,
+                   cancelado: Callable[[], bool] | None = None,
+                   **kwargs) -> list[Resultado]:
+    """
+    Convierte una lista de archivos. Detecta colisiones de nombre.
+
+    `progreso(indice, total, resultado)` se llama tras cada archivo, y
+    `cancelado()` se consulta antes de cada uno. Ambos existen para que la
+    interfaz grafica pueda mostrar avance y detener el lote sin que este
+    modulo sepa nada de tkinter: el motor solo avisa y pregunta.
+    """
     resultados: list[Resultado] = []
     usados: dict[Path, Path] = {}
+    total = len(archivos)
 
-    for origen in archivos:
+    for indice, origen in enumerate(archivos, start=1):
+        if cancelado is not None and cancelado():
+            break
         destino = ruta_destino(origen, formato, dir_salida, raiz, plano)
         if destino in usados:
-            resultados.append(Resultado(
-                origen=origen, destino=destino, estado="error",
-                detalle=f"colisiona con {usados[destino].name} (quita --plano)"))
-            continue
-        usados[destino] = origen
-        resultados.append(convertir_archivo(origen, destino, formato, **kwargs))
+            r = Resultado(origen=origen, destino=destino, estado="error",
+                          detalle=f"colisiona con {usados[destino].name}")
+        else:
+            usados[destino] = origen
+            r = convertir_archivo(origen, destino, formato, **kwargs)
+        resultados.append(r)
+        if progreso is not None:
+            progreso(indice, total, r)
     return resultados

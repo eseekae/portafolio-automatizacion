@@ -1,0 +1,102 @@
+# Genera el ejecutable para Windows, macOS y Linux.
+#
+# PyInstaller empaqueta el interprete NATIVO de la maquina donde corre: no
+# existe compilacion cruzada. Por eso cada sistema se construye en su propio
+# runner y aqui se juntan los tres resultados.
+#
+# Uso:
+#   - Manual: pestana Actions -> "Ejecutables" -> Run workflow
+#   - Automatico: al publicar una etiqueta v* se adjuntan a la Release
+
+name: Ejecutables
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+defaults:
+  run:
+    working-directory: bordado
+
+jobs:
+  construir:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            nombre: windows
+            artefacto: ConversorBordado.exe
+          - os: macos-latest
+            nombre: macos
+            artefacto: ConversorBordado
+          - os: ubuntu-latest
+            nombre: linux
+            artefacto: ConversorBordado
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,build]"
+
+      # Un ejecutable roto no se publica: los tests corren antes de empaquetar.
+      - name: Tests
+        run: pytest -q
+
+      - name: Empaquetar
+        run: pyinstaller empaquetar/conversor.spec --noconfirm
+
+      # Comprobacion minima de que el binario no muere al arrancar por un
+      # import que PyInstaller no detecto.
+      - name: Verificar que el binario arranca (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist/${{ matrix.artefacto }}" -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) {
+            Write-Error "El ejecutable murio al arrancar (codigo $($p.ExitCode))"
+            exit 1
+          }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "El ejecutable arranco correctamente."
+
+      - name: Empaquetar .app de macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd dist
+          zip -qry ConversorBordado-macos.zip ConversorBordado.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ConversorBordado-${{ matrix.nombre }}
+          path: |
+            bordado/dist/${{ matrix.artefacto }}
+            bordado/dist/ConversorBordado-macos.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  publicar:
+    # Solo al etiquetar una version: adjunta los tres binarios a la Release.
+    needs: construir
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: binarios
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: binarios/**/*
+          generate_release_notes: true

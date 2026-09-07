@@ -13,9 +13,15 @@ dependencies = ["pyembroidery>=1.4.35", "Pillow>=10.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+build = ["pyinstaller>=6.0"]
 
 [project.scripts]
 matriz = "bordado.cli:main"
+
+# gui-scripts (no "scripts"): en Windows evita que se abra una consola negra
+# detras de la ventana.
+[project.gui-scripts]
+matriz-gui = "bordado.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

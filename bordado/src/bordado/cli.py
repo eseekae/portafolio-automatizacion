@@ -105,6 +105,8 @@ def _cmd_convertir(args: argparse.Namespace) -> int:
     if extras:
         resumen += f", {extras} archivos de paleta"
     print(resumen)
+    if om and not args.sobrescribir:
+        print("Sugerencia: usa --sobrescribir para reemplazar los existentes.")
     if dir_salida and not args.seco:
         print(f"Salida: {dir_salida}")
     return 1 if err else 0
