@@ -32,6 +32,30 @@ cada semana.
 - [`sample_ventas.csv`](https://github.com/eseekae/portafolio-automatizacion/blob/main/sample_ventas.csv) — datos de entrada de prueba
 - [`reporte_ventas.xlsx`](https://github.com/eseekae/portafolio-automatizacion/blob/main/reporte_ventas.xlsx) — resultado generado por el script
 
+### 3. Conversor de matrices de bordado (aplicación de escritorio)
+[`bordado/`](https://github.com/eseekae/portafolio-automatizacion/tree/main/bordado)
+
+Programa con ventana para convertir matrices de bordado entre formatos **por
+lotes**: eliges una carpeta y pasa todos tus diseños a `.JEF`, `.PES`, `.DST` o
+el que necesite tu máquina. Lee 47 formatos y escribe 19. Convertir 40 archivos
+toma menos de un segundo.
+
+Pensado para talleres y personas que venden matrices y hoy convierten archivo
+por archivo en páginas web.
+
+**[⬇ Descargar para Windows, macOS o Linux](https://github.com/eseekae/portafolio-automatizacion/releases/latest)** ·
+[Instrucciones de instalación](https://github.com/eseekae/portafolio-automatizacion/tree/main/bordado#descargar-e-instalar)
+
+Un solo archivo, sin instalador y sin necesidad de tener Python.
+
+![Ventana del conversor](bordado/ejemplos/ventana.png)
+
+También incluye un pipeline para **generar** matrices por código, con control
+de calidad automatizado (densidad, puntada mínima, ajuste al aro) y exportación
+a los cinco formatos con vista previa y ficha técnica.
+
+**Stack:** Python, pyembroidery, tkinter, PyInstaller, GitHub Actions
+
 ## 🛠️ Sobre mí
 
 Estudiante de Ingeniería, Universidad de Chile (FCFM). Disponible para
