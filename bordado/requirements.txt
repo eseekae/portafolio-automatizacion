@@ -1,0 +1,3 @@
+pyembroidery>=1.4.35   # lectura/escritura de PES, JEF, DST, EXP, VP3 (motor de Ink/Stitch)
+Pillow>=10.0           # render de la vista previa PNG
+pytest>=7.0            # tests del pipeline / QA en CI
