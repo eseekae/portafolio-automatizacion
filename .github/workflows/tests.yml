@@ -1,0 +1,103 @@
+# Corre la bateria de tests en cada Pull Request y en cada push a main.
+#
+# Se prueba en los tres sistemas porque el proyecto termina siendo un
+# ejecutable de escritorio: rutas, mayusculas en extensiones y el motor de
+# tkinter se comportan distinto en cada uno.
+#
+# Los runners de Linux no tienen entorno grafico. Los tests de ventana lo
+# detectan y se saltan solos, asi que no hay que simular nada.
+
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: bordado
+
+concurrency:
+  # Un push nuevo cancela la corrida anterior del mismo PR.
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: ${{ matrix.os }} · Python ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  python: "3.12" }
+          - { os: windows-latest, python: "3.12" }
+          - { os: macos-latest,   python: "3.12" }
+          # Version minima declarada en pyproject.toml: si se rompe, es que
+          # se colo sintaxis mas nueva.
+          - { os: ubuntu-latest,  python: "3.10" }
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: bordado/pyproject.toml
+
+      - name: Instalar
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Tests
+        run: pytest -q --junit-xml=resultados.xml
+
+      # El conversor es la pieza que se distribuye: se comprueba de punta a
+      # punta con archivos reales, no solo con tests unitarios.
+      - name: Prueba de humo del conversor
+        run: |
+          python - <<'PY'
+          import subprocess, sys, tempfile
+          from pathlib import Path
+          import pyembroidery as pe
+          from bordado.geometria import circulo
+          from bordado.parametros import ParamGlobales, ParamRelleno
+          from bordado.patron import ConstructorPatron
+          from bordado.puntadas import relleno_tatami
+
+          tmp = Path(tempfile.mkdtemp())
+          b = ConstructorPatron(ParamGlobales())
+          b.agregar("a", "#1B4F9C", relleno_tatami(circulo((0, 0), 10), ParamRelleno()))
+          patron = b.construir()
+          for i in range(3):
+              pe.write(patron, str(tmp / f"d{i}.pes"), {"version": 1})
+
+          r = subprocess.run([sys.executable, "-m", "bordado.cli", "convertir",
+                              str(tmp), "--a", "jef", "-o", str(tmp / "out")],
+                             capture_output=True, text=True)
+          print(r.stdout, r.stderr)
+          assert r.returncode == 0, "el conversor devolvio error"
+          generados = sorted((tmp / "out").glob("*.jef"))
+          assert len(generados) == 3, f"se esperaban 3 .jef, hay {len(generados)}"
+          # Las puntadas deben sobrevivir intactas al cambio de formato.
+          for jef in generados:
+              a = pe.read(str(tmp / f"{jef.stem}.pes")).get_normalized_pattern()
+              c = pe.read(str(jef)).get_normalized_pattern()
+              assert abs(a.count_stitch_commands(pe.STITCH)
+                         - c.count_stitch_commands(pe.STITCH)) <= 2, jef.name
+          print("Prueba de humo OK: 3 archivos convertidos y verificados.")
+          PY
+        shell: bash
+
+      - name: Publicar resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-${{ matrix.os }}-py${{ matrix.python }}
+          path: bordado/resultados.xml
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,68 +1,134 @@
-# bordado — pipeline de matrices de bordado (.PES / .JEF / .DST)
+# Conversor de matrices de bordado
 
-Generación programática de matrices de bordado listas para máquina, con
-**control de calidad automatizado** y empaquetado comercial.
+[![Tests](https://github.com/eseekae/portafolio-automatizacion/actions/workflows/tests.yml/badge.svg)](https://github.com/eseekae/portafolio-automatizacion/actions/workflows/tests.yml)
+[![Ejecutables](https://github.com/eseekae/portafolio-automatizacion/actions/workflows/ejecutables.yml/badge.svg)](https://github.com/eseekae/portafolio-automatizacion/actions/workflows/ejecutables.yml)
 
-## Por qué código y no solo un digitalizador manual
+Convierte matrices de bordado entre formatos **por lotes**: eliges una carpeta
+y pasa todos tus diseños a `.JEF`, `.PES`, `.DST` o el formato que necesite tu
+máquina. Lee **47 formatos** y escribe **19**.
 
-Un digitalizador (Ink/Stitch, Wilcom) es insuperable para **arte**: dibujar,
-decidir dirección de puntada, corregir a ojo. Este repo cubre lo otro:
+Programa gratis y de código abierto. No necesitas instalar Python ni saber
+programar.
 
-- **Variantes en masa**: un diseño × 6 tamaños × 5 formatos = 30 archivos, en segundos.
-- **QA reproducible**: reglas físicas (puntada mínima, densidad, aro) verificadas
-  en cada build. Si falla, no se publica.
-- **Diseño paramétrico**: monogramas, marcos, patrones geométricos, mandalas,
-  parches con texto — donde la geometría es una fórmula, no un dibujo.
-- **Ficha técnica y empaquetado**: PNG de preview, secuencia de hilos, ZIP.
+![La ventana del programa](ejemplos/ventana.png)
 
-## Aplicación de escritorio (ejecutable)
+---
 
-Ventana para quien no usa terminal: eliges una carpeta, eliges el formato y
-convierte todo. Los archivos que ya están en ese formato se omiten solos.
+# Descargar e instalar
 
-**Descargar:** pestaña *Actions* → *Ejecutables* → último build → artefactos
-`ConversorBordado-windows` (`.exe`), `-macos` (`.app`) o `-linux`. Al publicar
-una etiqueta `v*` quedan además adjuntos a la Release.
+**[⬇ Ir a la página de descargas](https://github.com/eseekae/portafolio-automatizacion/releases/latest)**
 
-**Generarlo tú mismo** (en el sistema operativo de destino):
+Es un solo archivo. No hay instalador, no toca el registro de Windows y no
+deja nada en tu sistema: si lo quieres borrar, mandas el archivo a la papelera.
+
+## Windows
+
+1. Descarga **`ConversorBordado.exe`**.
+2. Haz doble clic.
+3. Aparecerá una pantalla azul que dice **"Windows protegió tu PC"**.
+   Es normal: pasa con todo programa que no paga una firma digital (cuestan
+   unos US$200 al año). Haz clic en **Más información** → **Ejecutar de todas
+   formas**.
+
+Listo. Puedes dejar el `.exe` en el Escritorio o donde te acomode.
+
+## macOS
+
+1. Descarga **`ConversorBordado-macos.zip`** y descomprímelo (doble clic).
+2. **Haz clic derecho** sobre `ConversorBordado.app` → **Abrir** → **Abrir**.
+
+> Importante: la primera vez tiene que ser **clic derecho → Abrir**. Con doble
+> clic normal, macOS lo bloquea sin dar opción. Si igual aparece "no se pudo
+> verificar", ve a **Ajustes del Sistema → Privacidad y seguridad**, baja hasta
+> el aviso y pulsa **Abrir igualmente**.
+
+## Linux
 
 ```bash
-pip install -e ".[build]"
-pyinstaller empaquetar/conversor.spec --noconfirm
-# el ejecutable queda en dist/
+chmod +x ConversorBordado
+./ConversorBordado
 ```
 
-> **PyInstaller no compila de forma cruzada.** Empaqueta el intérprete nativo
-> de la máquina donde corre, así que un `.exe` de Windows tiene que generarse
-> en Windows. Por eso el workflow `.github/workflows/ejecutables.yml` construye
-> los tres en runners separados.
+---
 
-Sin empaquetar, la misma ventana se abre con `matriz-gui` o
-`python -m bordado.gui`.
+# Cómo se usa
 
-## Instalación
+1. **Elige la carpeta.** Botón *Examinar...*, seleccionas dónde tienes tus
+   diseños. Marca *Incluir subcarpetas* si están repartidos en varias.
+2. **Elige el formato.** `jef` para Janome, `pes` para Brother o Babylock,
+   `dst` para máquinas industriales.
+3. **Pulsa Convertir.**
+
+Los archivos nuevos se guardan en una carpeta aparte (`convertidos_jef`), así
+que **tus originales no se tocan nunca**. Al terminar, el botón *Abrir carpeta
+de salida* te lleva directo a ellos.
+
+Vas a ver una línea por archivo con su cantidad de puntadas y su tamaño en
+milímetros:
+
+| Marca | Significa |
+|:---:|---|
+| `OK` | Convertido y verificado |
+| `--` | Omitido (ya estaba en ese formato, o ya existía) |
+| `XX` | El archivo está dañado y no se pudo leer |
+
+## Preguntas frecuentes
+
+**¿Modifica o borra mis archivos originales?**
+No. Solo lee. Todo lo nuevo va a una carpeta aparte.
+
+**¿Puedo agrandar o achicar un diseño con esto?**
+No, y ningún conversor debería prometerlo. Un archivo de bordado guarda
+*puntadas*, no formas: es como pasar un JPG a PNG, cambias el envase pero no
+recuperas el dibujo original. Sobre ±10-20% la densidad se arruina y el
+bordado sale con huecos o agarrota la tela.
+
+**Mi antivirus lo marca como sospechoso.**
+Pasa con casi todos los programas empaquetados de esta forma; es un falso
+positivo conocido. El código completo está en este repositorio y los
+ejecutables se generan automáticamente desde él, a la vista de todos.
+
+**¿Qué formato usa mi máquina?**
+
+| Formato | Máquinas |
+|---|---|
+| `.jef` | Janome |
+| `.pes` | Brother, Babylock, Bernina |
+| `.vp3` | Husqvarna Viking, Pfaff |
+| `.dst` | Industriales (Tajima y la mayoría) |
+| `.exp` | Melco, Bernina |
+| `.xxx` | Singer |
+
+**¿Se pierden los colores?**
+No, salvo en `.dst` y `.exp`, que por diseño no guardan color adentro. Para
+esos el programa genera un archivo de paleta al lado (`.edr` / `.inf`) para
+que no pierdas la secuencia de hilos.
+
+**¿Funciona sin internet?** Sí, todo se procesa en tu computador.
+
+---
+---
+
+# Para desarrolladores
+
+Lo de arriba es el programa terminado. De aquí en adelante, el proyecto.
+
+## Instalación desde el código
 
 ```bash
-pip install -e .          # deja disponible `matriz` y `matriz-gui`
+pip install -e .          # deja disponibles `matriz` y `matriz-gui`
 pytest -q
 ```
 
-## Conversor por lotes
-
-Convierte entre 47 formatos de entrada y 19 de salida. **No redimensiona ni
-re-digitaliza**: reescribe las mismas puntadas en otro contenedor.
+## Conversor por línea de comandos
 
 ```bash
 # 40 archivos .pes a .jef con un comando, replicando la estructura de carpetas
 matriz convertir catalogo/ -r --a jef -o convertidos/
 
-# comodines, o archivos sueltos
-matriz convertir *.pes --a jef
-
-# ver qué haría sin escribir nada
-matriz convertir catalogo/ --a dst -o salida/ --seco
-
-matriz formatos          # lista de formatos soportados
+matriz convertir *.pes --a jef          # comodines o archivos sueltos
+matriz convertir catalogo/ --a dst --seco   # simulación, no escribe nada
+matriz formatos                          # formatos soportados
 ```
 
 | Opción | Qué hace |
@@ -86,16 +152,35 @@ matriz formatos          # lista de formatos soportados
 - **No pisa nada en silencio.** Detecta colisiones de nombre y nunca escribe
   sobre el archivo de origen.
 
-> **Límite real de convertir:** un archivo de bordado guarda *puntadas*, no
-> objetos. Es como pasar un JPG a PNG — cambias el envase, no recuperas el
-> vector. Por eso convertir nunca permite reescalar más de ±10-20% sin
-> arruinar la densidad. Reescalar de verdad exige re-digitalizar.
+## Generar el ejecutable
+
+```bash
+pip install -e ".[build]"
+pyinstaller empaquetar/conversor.spec --noconfirm   # queda en dist/
+```
+
+> **PyInstaller no compila de forma cruzada.** Empaqueta el intérprete nativo
+> de la máquina donde corre, así que un `.exe` de Windows tiene que generarse
+> en Windows. Por eso `.github/workflows/ejecutables.yml` construye los tres
+> en runners separados.
+
+**Publicar una versión** (deja los binarios en la página de descargas):
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+Sin empaquetar, la misma ventana se abre con `matriz-gui` o
+`python -m bordado.gui`.
 
 ## Generación de diseños
 
 ```bash
 python disenos/demo_emblema.py
 ```
+
+Genera una matriz por código, la valida y la exporta a los cinco formatos con
+vista previa y ficha técnica.
 
 ## Arquitectura
 
@@ -104,7 +189,7 @@ formatos de archivo; solo `patron.py` toca pyembroidery.
 
 ```
 gui/app.py          ventana tkinter: solo widgets y presentación
-gui/controlador.py  hilo trabajador + cola de eventos (probable sin pantalla)
+gui/controlador.py  hilo trabajador + cola de eventos (testeable sin pantalla)
 cli.py              subcomandos: convertir · [futuro] digitalizar, redimensionar
 convertir.py        motor de conversión por lotes (puro, sin I/O de consola)
 
@@ -132,6 +217,10 @@ La conversión a unidades de máquina (1/10 mm) ocurre solo en `patron.py`.
 **Eje Y:** los formatos de bordado usan Y hacia arriba; las imágenes, hacia
 abajo. `exportar.py` invierte el eje solo para el PNG de preview.
 
+**Hilos:** tkinter no es thread-safe. El lote corre en un hilo trabajador que
+publica eventos en una cola; el hilo de la interfaz la vacía cada 80 ms. Por
+eso `gui/controlador.py` no importa tkinter y se puede testear sin pantalla.
+
 ## Parámetros clave (valores de industria, poliéster 40wt / aguja 75-11)
 
 | Parámetro | Rango | Efecto si te equivocas |
@@ -144,7 +233,7 @@ abajo. `exportar.py` invierte el eje solo para el PNG de preview.
 | Desfase de fila | ~1.4 mm | Sin él: "efecto cremallera" visible |
 
 Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
-`N ≈ A / (d · l)`. Tiempo de bordado: `t = N / v`, con `v ≈ 700 ppm.`
+`N ≈ A / (d · l)`. Tiempo de bordado: `t = N / v`, con `v ≈ 700 ppm`.
 
 ## Hoja de ruta
 
@@ -153,12 +242,13 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
    - segmentación → vectorización → limpieza
    - decisión de puntada por región → ordenamiento de objetos y colores
    - mapeo a hilos reales (Madeira / Isacord)
-3. **Redimensionador** con recálculo de densidad
-4. Integración de todo en un solo programa distribuible
+3. **Redimensionador** con recálculo de densidad — depende del punto 2:
+   no se puede reescalar bien desde el binario, solo desde las regiones
+4. Integración de todo en un solo programa
 
 ## Estado actual
 
-Implementado y testeado (40 tests):
+Implementado y testeado (40 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Aplicación de escritorio y empaquetado a ejecutable
@@ -170,6 +260,7 @@ Implementado y testeado (40 tests):
 - Export a PES/JEF/DST/EXP/VP3 + PNG + ficha JSON/TXT + ZIP
 
 Limitaciones conocidas (documentadas en el código):
+
 - `desplazar_contorno()` es un offset por normales; falla en concavidades
   agudas. Reemplazar por Shapely (`buffer`) para producción.
 - Sin importador de SVG: los diseños se definen en Python. Para arte dibujado,
@@ -189,3 +280,7 @@ Limitaciones conocidas (documentadas en el código):
 > La licencia del software **no** alcanza a los diseños que produce: las
 > matrices generadas son tuyas y se pueden vender. Lo que sí importa
 > legalmente es el origen del **arte** (personajes, logos, tipografías).
+
+## Licencia
+
+MIT — ver [LICENSE](LICENSE).
