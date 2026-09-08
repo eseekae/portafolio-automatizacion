@@ -51,6 +51,20 @@ class Reporte:
         return "\n".join(lineas)
 
 
+def _minutos(puntadas: int, cortes: int, colores: int,
+             g: ParamGlobales) -> float:
+    """
+    Tiempo de maquina realista.
+
+    Contar solo puntadas subestima siempre: los cortes detienen la maquina y
+    los cambios de color la detienen a ella y a la persona. En un diseno con
+    muchos cortes eso son minutos, no ruido.
+    """
+    return (puntadas / max(g.velocidad_ppm, 1)
+            + cortes * g.segundos_por_corte / 60.0
+            + max(colores - 1, 0) * g.segundos_por_color / 60.0)
+
+
 def validar(patron: pe.EmbPattern, g: ParamGlobales,
             paradas_esperadas: int | None = None) -> Reporte:
     """
@@ -124,7 +138,7 @@ def validar(patron: pe.EmbPattern, g: ParamGlobales,
         "Aro objetivo": g.aro.nombre,
         "Hilo consumido (m)": f"{total_mm / 1000:.2f}",
         "Densidad (punt/cm2)": f"{n_puntadas / area_cm2:.0f}",
-        "Tiempo estimado (min)": f"{n_puntadas / g.velocidad_ppm:.1f}",
+        "Tiempo estimado (min)": f"{_minutos(n_puntadas, n_trims, n_colores, g):.1f}",
     }
 
     # ---------------- Reglas de aceptacion ----------------

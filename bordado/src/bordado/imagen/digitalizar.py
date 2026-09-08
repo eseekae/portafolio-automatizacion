@@ -17,7 +17,7 @@ comerciales se quedan cortos.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -25,7 +25,10 @@ import numpy as np
 from ..aplique import ParamAplique, instrucciones
 from ..aplique import secuencia as secuencia_aplique
 from ..geometria import Polilinea, Punto, area_shoelace, longitud
-from ..parametros import ParamGlobales, ParamRecta, ParamRelleno, ParamSatin
+from ..parametros import (
+    PERFIL_POR_DEFECTO, PERFILES, ParamGlobales, ParamRecta, ParamRelleno,
+    ParamSatin, Perfil,
+)
 from ..patron import ConstructorPatron
 from ..puntadas import puntada_recta, relleno_tatami, satin_de_region
 from . import segmentar as seg
@@ -236,7 +239,8 @@ def _describir(color: int, exterior: Polilinea, huecos: list[Polilinea]) -> Regi
 # Etapa 3: decidir como coser cada region
 # --------------------------------------------------------------------------
 
-def decidir(r: Region, densidad_mm: float = 0.40) -> ParamRelleno:
+def decidir(r: Region, densidad_mm: float = 0.40,
+            perfil: Perfil | None = None) -> ParamRelleno:
     """
     Elige parametros de relleno segun la forma. Reglas, no magia:
 
@@ -246,16 +250,21 @@ def decidir(r: Region, densidad_mm: float = 0.40) -> ParamRelleno:
     - El underlay se escala con el area: una mancha grande necesita base
       cruzada para no encogerse; una chica solo un contorno; una diminuta
       nada, porque el underlay pesaria mas que el relleno.
+
+    El `perfil` mueve los umbrales de una sola vez. Es la palanca de tiempo:
+    subir la separacion, alargar la puntada y poner menos underlay son las
+    tres cosas que de verdad bajan los minutos de maquina.
     """
+    perfil = perfil or PERFILES[PERFIL_POR_DEFECTO]
     angulo = r.angulo if r.elongacion > 1.8 else 45.0
-    if r.area_mm2 > 60.0:
+    if r.area_mm2 > perfil.area_underlay_tatami_mm2:
         underlay = "tatami"
-    elif r.area_mm2 > 12.0:
+    elif r.area_mm2 > perfil.area_underlay_contorno_mm2:
         underlay = "contorno"
     else:
         underlay = "none"
     # En regiones finas la trama larga cruza de lado a lado y se engancha.
-    largo = 3.5 if r.grosor_mm > 3.0 else max(1.8, r.grosor_mm * 0.8)
+    largo = perfil.largo_mm if r.grosor_mm > 3.0 else max(1.8, r.grosor_mm * 0.8)
     return ParamRelleno(densidad_mm=densidad_mm, largo_mm=largo,
                         angulo_grados=angulo, underlay=underlay)
 
@@ -333,7 +342,8 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
                 area_min_mm2: float = 1.0, suavizado: int = 3,
                 quitar_fondo: bool = True, semilla: int = 0,
                 aplique: bool = False,
-                p_aplique: ParamAplique | None = None):
+                p_aplique: ParamAplique | None = None,
+                perfil: str = PERFIL_POR_DEFECTO):
     """
     Devuelve (EmbPattern, Digitalizacion, Segmentacion|None).
 
@@ -341,7 +351,12 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
     vectorial, los contornos exactos estan en el archivo y rasterizarlos para
     volver a trazarlos seria perder precision a cambio de nada.
     """
+    perfil_obj = PERFILES.get(perfil, PERFILES[PERFIL_POR_DEFECTO])
+    if densidad_mm == 0.40:
+        densidad_mm = perfil_obj.densidad_mm     # solo si no se pidio otra
     g = g or ParamGlobales()
+    # Menos cortes de hilo: cada uno detiene la maquina alrededor de 1.5 s.
+    g = replace(g, salto_max_sin_corte_mm=perfil_obj.salto_max_sin_corte_mm)
     ruta = Path(ruta)
 
     if ruta.suffix.lower() == ".svg":
@@ -408,7 +423,7 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
                 tecnica = "relleno"      # no dio para satin: se rellena
 
         if tecnica == "relleno":
-            p = decidir(r, densidad_mm)
+            p = decidir(r, densidad_mm, perfil_obj)
             corridas = relleno_tatami(r.exterior, p, huecos=r.huecos)
             # Contorno de cierre: define el borde y tapa el dentado que deja el
             # relleno al terminar cada fila. Solo donde hay superficie que lo

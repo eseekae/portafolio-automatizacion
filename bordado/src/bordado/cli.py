@@ -7,11 +7,13 @@ toda la logica vive en los modulos del paquete.
 
     matriz convertir ENTRADA... --a jef [-o SALIDA] [opciones]
     matriz digitalizar IMAGEN --ancho 90 [--colores 5] [opciones]
+    matriz analizar ARCHIVO
 
 Ejemplos:
     matriz convertir disenos/ --a jef -o convertidos/
     matriz convertir *.pes --a jef
     matriz digitalizar logo.png --ancho 80 --colores 4 -o salida/
+    matriz analizar dragon.pes          # donde se va el tiempo y como bajarlo
 """
 
 from __future__ import annotations
@@ -143,7 +145,7 @@ def _cmd_digitalizar(args: argparse.Namespace) -> int:
     nombre = args.nombre or imagen.stem
 
     print(f"Digitalizando {imagen.name} -> {args.ancho} mm de ancho, "
-          f"{args.colores} colores")
+          f"{args.colores} colores, calidad {args.calidad}")
     print("=" * ANCHO)
 
     from .aplique import ParamAplique
@@ -153,7 +155,7 @@ def _cmd_digitalizar(args: argparse.Namespace) -> int:
         formato_hilos=formatos[0], g=g, px_por_mm=args.detalle,
         densidad_mm=args.densidad, area_min_mm2=args.area_min,
         suavizado=args.suavizado, quitar_fondo=not args.con_fondo,
-        semilla=args.semilla, aplique=args.aplique,
+        semilla=args.semilla, aplique=args.aplique, perfil=args.calidad,
         p_aplique=ParamAplique(ancho_cobertura_mm=args.ancho_cobertura))
 
     print(d.resumen())
@@ -188,6 +190,35 @@ def _guardar_segmentacion(seg, ruta: Path) -> Path:
     vis[seg.fondo] = (255, 255, 255)
     Image.fromarray(vis.astype(np.uint8)).save(ruta)
     return ruta
+
+
+def _cmd_analizar(args: argparse.Namespace) -> int:
+    import pyembroidery as pe
+
+    from .analizar import analizar
+
+    rutas = recolectar(args.entradas, recursivo=args.recursivo)
+    if not rutas:
+        print("error: no se encontro ningun archivo de bordado legible.",
+              file=sys.stderr)
+        return 2
+
+    for i, ruta in enumerate(rutas):
+        try:
+            patron = pe.read(str(ruta))
+        except Exception:  # noqa: BLE001
+            print(f"{ruta.name}: ilegible o corrupto", file=sys.stderr)
+            continue
+        if patron is None or not patron.stitches:
+            print(f"{ruta.name}: sin puntadas", file=sys.stderr)
+            continue
+        if i:
+            print()
+        print(ruta.name)
+        print(analizar(patron, velocidad_ppm=args.velocidad,
+                       segundos_por_corte=args.segundos_corte,
+                       segundos_por_color=args.segundos_color).texto())
+    return 0
 
 
 def _cmd_formatos(_: argparse.Namespace) -> int:
@@ -265,6 +296,10 @@ def construir_parser() -> argparse.ArgumentParser:
                     help="borda tambien el fondo en vez de recortarlo")
     dg.add_argument("--semilla", type=int, default=0,
                     help="semilla del agrupamiento (cambiala si no te gusta el corte)")
+    dg.add_argument("--calidad", default="equilibrada",
+                    choices=("alta", "equilibrada", "rapida"),
+                    help="compromiso entre acabado y tiempo de maquina "
+                         "(rapida ahorra ~20%% del tiempo)")
     dg.add_argument("--aplique", action="store_true",
                     help="usa aplique (coser sobre un retazo de tela) en las "
                          "areas grandes donde ahorre puntadas")
@@ -273,6 +308,21 @@ def construir_parser() -> argparse.ArgumentParser:
     dg.add_argument("--ver-segmentacion", action="store_true",
                     help="guarda una imagen con los colores detectados")
     dg.set_defaults(func=_cmd_digitalizar)
+
+    an = sub.add_parser("analizar",
+                        help="mide una matriz: puntadas, hilo, tiempo real y "
+                             "que se puede recortar")
+    an.add_argument("entradas", nargs="+", help="archivos o carpetas")
+    an.add_argument("-r", "--recursivo", action="store_true",
+                    help="incluye subcarpetas")
+    an.add_argument("--velocidad", type=int, default=700, metavar="PPM",
+                    help="velocidad de tu maquina en puntadas por minuto "
+                         "(domesticas: 400-850; por defecto 700)")
+    an.add_argument("--segundos-corte", type=float, default=1.5, metavar="S",
+                    help="cuanto tarda tu maquina en cortar el hilo")
+    an.add_argument("--segundos-color", type=float, default=25.0, metavar="S",
+                    help="cuanto tardas en reenhebrar un color")
+    an.set_defaults(func=_cmd_analizar)
 
     f = sub.add_parser("formatos", help="lista los formatos soportados")
     f.set_defaults(func=_cmd_formatos)

@@ -82,6 +82,40 @@ class ParamRelleno:
 
 
 @dataclass(frozen=True)
+class Perfil:
+    """
+    Compromiso entre acabado y tiempo de maquina.
+
+    Las tres palancas que mueven la aguja son la separacion entre pasadas, el
+    largo de puntada y cuanto underlay se pone. Ninguna es gratis, pero el
+    tramo entre "alta" y "rapida" cuesta poco a la vista y ahorra un tercio
+    del tiempo, que en produccion es la diferencia entre 25 y 17 minutos.
+    """
+    nombre: str
+    densidad_mm: float
+    largo_mm: float
+    area_underlay_tatami_mm2: float   # sobre esto, base cruzada
+    area_underlay_contorno_mm2: float # sobre esto, al menos un contorno
+    salto_max_sin_corte_mm: float
+    descripcion: str
+
+
+PERFILES = {
+    "alta": Perfil(
+        "alta", 0.38, 3.2, 40.0, 8.0, 6.0,
+        "Maximo acabado. Para piezas de venta y telas dificiles."),
+    "equilibrada": Perfil(
+        "equilibrada", 0.40, 3.5, 60.0, 12.0, 8.0,
+        "Lo que usa la industria. Buen acabado a tiempo razonable."),
+    "rapida": Perfil(
+        "rapida", 0.45, 4.0, 150.0, 20.0, 12.0,
+        "Un tercio menos de tiempo. Se nota poco en areas grandes; en "
+        "detalles finos si."),
+}
+PERFIL_POR_DEFECTO = "equilibrada"
+
+
+@dataclass(frozen=True)
 class ParamGlobales:
     """Parametros que aplican al patron completo."""
     aro: Aro = AROS["brother_4x4"]
@@ -92,3 +126,7 @@ class ParamGlobales:
     remate_puntadas: int = 3           # tie-in / tie-off: puntadas de amarre
     remate_largo_mm: float = 0.7
     velocidad_ppm: int = 700           # puntadas/min, para estimar tiempo de bordado
+    # La cuenta "puntadas / velocidad" se queda corta: cada corte detiene la
+    # maquina y cada cambio de color son decenas de segundos reenhebrando.
+    segundos_por_corte: float = 1.5
+    segundos_por_color: float = 25.0
