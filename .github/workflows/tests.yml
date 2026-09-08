@@ -39,6 +39,10 @@ jobs:
           - { os: ubuntu-latest,  python: "3.10" }
 
     runs-on: ${{ matrix.os }}
+    # Sin esto, un proceso colgado mantiene el job vivo hasta el limite por
+    # defecto de GitHub: 6 horas de runner por nada. Con el, un cuelgue se
+    # reporta como fallo en minutos.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 

@@ -1,12 +1,25 @@
 """
-Prueba de la ventana real. Se salta sola si no hay entorno grafico
-(contenedores, CI sin display), asi nunca rompe el build.
+Prueba de la ventana real. Se salta sola donde no hay entorno grafico
+utilizable, asi nunca rompe el build.
 
 Cubre lo unico que el test del controlador no puede ver: que los widgets se
 creen, que el bucle `after()` traslade los eventos del hilo trabajador a la
 interfaz, y que los botones queden en el estado correcto al terminar.
+
+DETECCION DEL ENTORNO GRAFICO
+    En Linux sin DISPLAY, `Tk()` lanza TclError y basta con atraparlo. En
+    macOS sin sesion de ventanas (el caso de los runners de CI) `Tk()` se
+    QUEDA BLOQUEADO en codigo C en vez de fallar, y ahi no hay try/except ni
+    signal.alarm que valga: el interprete nunca recupera el control.
+
+    Por eso la comprobacion se hace una sola vez en un SUBPROCESO con
+    timeout. Un subproceso si se puede matar pase lo que pase. Donde tkinter
+    funciona la sonda vuelve en menos de un segundo y los tests corren
+    normalmente; donde se cuelga, se saltan con un motivo claro.
 """
 
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -20,13 +33,35 @@ from bordado.puntadas import relleno_tatami
 
 tk = pytest.importorskip("tkinter")
 
+SONDA = "import tkinter; r = tkinter.Tk(); r.update(); r.destroy()"
+
+
+def _hay_entorno_grafico(timeout: float = 25.0) -> tuple[bool, str]:
+    """Abre y cierra una ventana en un subproceso desechable."""
+    try:
+        p = subprocess.run([sys.executable, "-c", SONDA], timeout=timeout,
+                           capture_output=True, text=True)
+    except subprocess.TimeoutExpired:
+        return False, (f"tkinter no respondio en {timeout:.0f} s "
+                       "(sesion de ventanas no utilizable)")
+    except OSError as e:
+        return False, f"no se pudo lanzar la sonda: {e}"
+    if p.returncode != 0:
+        return False, (p.stderr.strip().splitlines() or ["tkinter fallo"])[-1]
+    return True, ""
+
+
+@pytest.fixture(scope="session")
+def entorno_grafico():
+    disponible, motivo = _hay_entorno_grafico()
+    if not disponible:
+        pytest.skip(f"sin entorno grafico utilizable: {motivo}")
+    return True
+
 
 @pytest.fixture
-def ventana():
-    try:
-        raiz = tk.Tk()
-    except tk.TclError as e:            # sin DISPLAY / sin servidor grafico
-        pytest.skip(f"sin entorno grafico: {e}")
+def ventana(entorno_grafico):
+    raiz = tk.Tk()
     raiz.withdraw()
     yield raiz
     raiz.destroy()
