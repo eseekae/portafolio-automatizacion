@@ -20,6 +20,7 @@ DETECCION DEL ENTORNO GRAFICO
 
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -37,17 +38,33 @@ SONDA = "import tkinter; r = tkinter.Tk(); r.update(); r.destroy()"
 
 
 def _hay_entorno_grafico(timeout: float = 25.0) -> tuple[bool, str]:
-    """Abre y cierra una ventana en un subproceso desechable."""
-    try:
-        p = subprocess.run([sys.executable, "-c", SONDA], timeout=timeout,
-                           capture_output=True, text=True)
-    except subprocess.TimeoutExpired:
-        return False, (f"tkinter no respondio en {timeout:.0f} s "
-                       "(sesion de ventanas no utilizable)")
-    except OSError as e:
-        return False, f"no se pudo lanzar la sonda: {e}"
-    if p.returncode != 0:
-        return False, (p.stderr.strip().splitlines() or ["tkinter fallo"])[-1]
+    """
+    Abre y cierra una ventana en un subproceso desechable.
+
+    La salida va a ARCHIVOS, no a tuberias. Con `capture_output` (tuberias),
+    matar al hijo no basta: `communicate()` vuelve a esperar a que se cierren,
+    y si el hijo dejo nietos vivos sujetandolas —que es justo lo que hace Tk
+    en macOS— la espera no termina nunca y el arreglo se cuelga igual que el
+    problema que venia a resolver. Un archivo no bloquea jamas.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        salida = Path(tmp) / "sonda.txt"
+        try:
+            with salida.open("w") as f:
+                p = subprocess.Popen([sys.executable, "-c", SONDA],
+                                     stdout=f, stderr=subprocess.STDOUT)
+                try:
+                    codigo = p.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    p.kill()
+                    p.poll()          # no se espera: el hijo ya no importa
+                    return False, (f"tkinter no respondio en {timeout:.0f} s "
+                                   "(sesion de ventanas no utilizable)")
+        except OSError as e:
+            return False, f"no se pudo lanzar la sonda: {e}"
+        if codigo != 0:
+            lineas = salida.read_text(errors="replace").strip().splitlines()
+            return False, (lineas or ["tkinter fallo"])[-1]
     return True, ""
 
 
