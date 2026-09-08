@@ -67,6 +67,7 @@ class TrabajoImagen:
     quitar_fondo: bool = True
     semilla: int = 0
     aplique: bool = False
+    perfil: str = "equilibrada"
 
     def validar(self) -> str:
         if not str(self.imagen).strip() or str(self.imagen) == ".":
@@ -222,7 +223,7 @@ class Controlador:
                 t.imagen, ancho_mm=t.ancho_mm, n_colores=t.n_colores,
                 formato_hilos=t.formatos[0], g=g, densidad_mm=t.densidad_mm,
                 quitar_fondo=t.quitar_fondo, semilla=t.semilla,
-                aplique=t.aplique)
+                aplique=t.aplique, perfil=t.perfil)
 
             if self._cancelar.is_set():
                 self.cola.put(FinImagen(error="Cancelado."))

@@ -16,6 +16,8 @@ Dos herramientas en un solo programa:
   exactos y 29 veces más rápido.
 - **Redimensionar** — cambios chicos con corrección de puntada, y un aviso
   claro cuando el cambio es demasiado grande para hacerse bien.
+- **Analizar** — le das cualquier matriz y te dice dónde se va el tiempo y qué
+  se puede recortar sin estropearla.
 
 Programa gratis y de código abierto. No necesitas instalar Python ni saber
 programar.
@@ -209,6 +211,62 @@ calcula de nuevo desde cero.
 El programa no te deja pasarte en silencio: rechaza el archivo y te dice por
 qué.
 
+# ¿Por qué mi matriz tarda tanto?
+
+Antes de tocar nada, mídela:
+
+```bash
+matriz analizar dragon.pes --velocidad 500
+```
+
+```
+  Puntadas.......................... 12,400
+  Superficie cubierta (cm2)......... 62.0
+  Densidad (puntadas/cm2)........... 200
+  Hilo (m).......................... 34.8
+  Cortes de hilo.................... 180
+--------------------------------------------------------------
+ TIEMPO ESTIMADO
+  Cosiendo..........................  24.8 min
+  Cortes de hilo....................   4.5 min
+  TOTAL.............................  29.3 min
+```
+
+Pon la velocidad **de tu máquina** (`--velocidad`, en puntadas por minuto; las
+domésticas van entre 400 y 850). El total incluye los cortes de hilo, que
+detienen la máquina ~1,5 s cada uno — contar solo puntadas siempre subestima.
+
+## Las tres palancas
+
+Medidas sobre un relleno de 45 cm²:
+
+| Cambio | Ahorro | Qué se nota |
+|---|---:|---|
+| Separación 0.40 → 0.45 mm | 9% | nada en áreas grandes |
+| Puntada 3.5 → 4.0 mm | 10% | nada en áreas grandes |
+| Menos underlay | 14% | algo en telas elásticas |
+| **Las tres juntas** | **32%** | poco, salvo en detalles finos |
+
+Eso es el selector **Calidad** de la pestaña *Imagen a bordado*:
+
+| Perfil | Separación | Puntada | Tiempo |
+|---|---|---|---|
+| `alta` | 0.38 mm | 3.2 mm | +8% |
+| `equilibrada` | 0.40 mm | 3.5 mm | referencia |
+| `rapida` | 0.45 mm | 4.0 mm | −20% |
+
+```bash
+matriz digitalizar logo.png --ancho 90 --calidad rapida
+```
+
+**Y la palanca grande, que no es una palanca:** si el diseño tiene manchas
+grandes de un color, el appliqué ahorra 60-70%, no 10%. Las tres de arriba
+juntas no llegan a eso.
+
+> **Nada de esto se puede aplicar sobre un archivo ya bordado.** Un `.pes` no
+> guarda las regiones, solo las perforaciones. `analizar` te dice qué cambiar;
+> aplicarlo exige volver al original y re-digitalizarlo.
+
 ## Preguntas frecuentes
 
 **¿Modifica o borra mis archivos originales?**
@@ -305,6 +363,7 @@ matriz digitalizar logo.png --ancho 90 --colores 5 --a jef pes -o salida/
 matriz digitalizar logo.svg --ancho 90                # vectorial, sin rasterizar
 matriz digitalizar logo.png --ancho 60 --ver-segmentacion   # imagen de control
 matriz convertir catalogo/ --a jef --escala 110       # convertir y redimensionar
+matriz analizar dragon.pes --velocidad 500           # dónde se va el tiempo
 ```
 
 | Opción | Qué hace |
@@ -318,6 +377,7 @@ matriz convertir catalogo/ --a jef --escala 110       # convertir y redimensiona
 | `--area-min MM2` | descarta regiones menores a esta área |
 | `--semilla N` | cambia el corte de colores |
 | `--con-fondo` | borda también el fondo |
+| `--calidad {alta,equilibrada,rapida}` | acabado contra tiempo de máquina |
 | `--aplique` | usa appliqué donde ahorre puntadas |
 | `--ancho-cobertura MM` | ancho del satin que tapa el borde del retazo |
 
@@ -368,6 +428,15 @@ Decisiones que vale la pena conocer:
 - **El redimensionado corrige lo que se puede y rechaza lo que no.** El largo
   de puntada depende de dos puntos y se recalcula exacto; la separación entre
   pasadas depende de las regiones, que un archivo de puntadas ya no tiene.
+- **El tiempo se estima con cortes y cambios de color, no solo con puntadas.**
+  Cada corte detiene la máquina ~1,5 s y cada cambio de color son ~25 s de
+  reenhebrado. En un diseño picoteado eso son minutos.
+- **La densidad se informa en puntadas/cm², no en separación entre pasadas.**
+  Se probaron varios estimadores de la separación a partir de las puntadas y
+  todos fallaban por más del doble según el desfase de filas del relleno. Se
+  descartó publicar un número que llevaría a decidir mal. Las bandas de
+  puntadas/cm² están calibradas midiendo rellenos de separación conocida sobre
+  un disco de área conocida.
 
 ## Generar el ejecutable
 
@@ -423,6 +492,7 @@ imagen/segmentar.py   imagen -> regiones planas de color (k-means en Lab)
 imagen/vectorizar.py  máscara -> anillos poligonales + simplificación
 imagen/svg.py         SVG -> regiones, sin pasar por píxeles
 redimensionar.py      escalado con corrección de largos y límite seguro
+analizar.py           mide una matriz: hilo, densidad, tiempo real, palancas
 imagen/hilos.py       color -> hilo real del catálogo de la máquina
 imagen/digitalizar.py orquesta las etapas y decide cómo coser cada región
 
@@ -484,7 +554,7 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (154 tests, en Windows / macOS / Linux):
+Implementado y testeado (170 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
@@ -492,6 +562,7 @@ Implementado y testeado (154 tests, en Windows / macOS / Linux):
 - Appliqué con secuencia de 3 pasos y verificación de las paradas
 - Importador de SVG con curvas, arcos, transformaciones y modelo del pintor
 - Redimensionado con corrección de largos y límite seguro
+- Análisis de eficiencia con tiempo realista y perfiles de calidad
 - Aplicación de escritorio de dos pestañas y empaquetado a ejecutable
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
@@ -508,6 +579,8 @@ Limitaciones conocidas (documentadas en el código):
   que se cruzan a medias se cosen enteras, con solape en la intersección.
 - El redimensionado no recalcula la separación entre pasadas: para eso hay que
   re-digitalizar desde la imagen o el SVG.
+- El orden de bordado se optimiza dentro de cada color, no entre colores: con
+  un recorrido global habría menos cortes de hilo.
 - El satin automático trata cada región por separado: no encadena varias
   ramas de una misma letra en una sola columna continua.
 - El appliqué usa el contorno completo de la región. Un diseño real suele

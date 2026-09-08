@@ -21,4 +21,4 @@ Arquitectura por capas (dependencias en un solo sentido, hacia abajo):
     exportar.py           <- PES/JEF/DST + preview + ficha + ZIP
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"

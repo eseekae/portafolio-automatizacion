@@ -29,7 +29,7 @@ from tkinter import scrolledtext, ttk
 
 from .. import __version__
 from ..convertir import FORMATOS_ESCRITURA, FORMATOS_MAQUINA
-from ..parametros import AROS
+from ..parametros import AROS, PERFILES
 from .controlador import (
     Avance, Controlador, Fin, FinImagen, Inicio, Mensaje, Trabajo,
     TrabajoImagen, salida_sugerida,
@@ -164,6 +164,7 @@ class Aplicacion(ttk.Frame):
         self.v_densidad = tk.DoubleVar(value=0.40)
         self.v_quitar_fondo = tk.BooleanVar(value=True)
         self.v_aplique = tk.BooleanVar(value=False)
+        self.v_calidad = tk.StringVar(value="equilibrada")
         self.v_semilla = tk.IntVar(value=0)
         self.v_salida_img = tk.StringVar()
         self.v_fmt_img = {f: tk.BooleanVar(value=(f == "jef"))
@@ -192,7 +193,11 @@ class Aplicacion(ttk.Frame):
                     textvariable=self.v_colores).pack(side=LEFT, padx=(6, 16))
         ttk.Label(fila, text="Aro:").pack(side=LEFT)
         ttk.Combobox(fila, textvariable=self.v_aro, values=sorted(AROS),
-                     state="readonly", width=14).pack(side=LEFT, padx=(6, 0))
+                     state="readonly", width=13).pack(side=LEFT, padx=(6, 16))
+        ttk.Label(fila, text="Calidad:").pack(side=LEFT)
+        ttk.Combobox(fila, textvariable=self.v_calidad,
+                     values=["alta", "equilibrada", "rapida"],
+                     state="readonly", width=12).pack(side=LEFT, padx=(6, 0))
 
         fila = ttk.Frame(d); fila.pack(fill=X, pady=(8, 0))
         ttk.Label(fila, text="Formatos:").pack(side=LEFT)
@@ -208,6 +213,11 @@ class Aplicacion(ttk.Frame):
         ttk.Label(fila, text="(coses sobre un retazo de tela en vez de rellenar "
                              "con hilo: mucho mas rapido y flexible)"
                   ).pack(side=LEFT, padx=(8, 0))
+
+        fila = ttk.Frame(d); fila.pack(fill=X, pady=(6, 0))
+        ttk.Label(fila, text="Calidad rapida quita ~20% del tiempo de maquina; "
+                             "alta lo sube ~8%. Se nota en los detalles finos, "
+                             "no en las areas grandes.").pack(side=LEFT)
 
         fila = ttk.Frame(d); fila.pack(fill=X, pady=(8, 0))
         ttk.Label(fila, text="Guardar en:").pack(side=LEFT)
@@ -309,6 +319,7 @@ class Aplicacion(ttk.Frame):
             quitar_fondo=self.v_quitar_fondo.get(),
             semilla=int(self.v_semilla.get()),
             aplique=self.v_aplique.get(),
+            perfil=self.v_calidad.get(),
         )
 
     def _convertir(self) -> None:
