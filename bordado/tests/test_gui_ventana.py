@@ -76,6 +76,39 @@ def entorno_grafico():
     return True
 
 
+def _esperar_fin(app, ventana, limite: float = 120.0) -> None:
+    """
+    Espera a que termine el trabajo corriendo el bucle de eventos REAL.
+
+    Deliberadamente NO se bombea con `ventana.update()` en un bucle.
+    `update()` procesa eventos hasta vaciar la cola, y la barra de progreso
+    indeterminada se reprograma sola cada pocos milisegundos: si la maquina
+    tarda mas en atender un ciclo que lo que la animacion tarda en volver a
+    encolarse, la cola no se vacia nunca y `update()` no regresa.
+
+    Eso es lo que colgaba el runner de macOS. Linux y Windows, mas rapidos,
+    alcanzaban a drenarla y por eso pasaban. El sintoma era un cuelgue dentro
+    de `self.tk.call('update')`, sin excepcion ni traceback.
+
+    `mainloop()` no tiene ese problema: procesa eventos indefinidamente y se
+    sale con `quit()`. Ademas es como corre la aplicacion de verdad, asi que
+    el test se parece mas a la realidad, no menos.
+    """
+    fin = time.monotonic() + limite
+
+    def revisar() -> None:
+        # `_liberar()` reactiva los botones al terminar, en los dos caminos.
+        terminado = str(app.btn_cancelar["state"]) == "disabled"
+        if terminado or time.monotonic() > fin:
+            ventana.quit()
+        else:
+            ventana.after(30, revisar)
+
+    ventana.after(30, revisar)
+    ventana.mainloop()
+    assert str(app.btn_cancelar["state"]) == "disabled", "el trabajo no termino"
+
+
 @pytest.fixture(autouse=True)
 def dialogos(monkeypatch):
     """
@@ -138,12 +171,7 @@ def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path, dialogos):
     app._convertir()
     assert str(app.btn_convertir["state"]) == "disabled"
 
-    limite = time.monotonic() + 60
-    while app.ctrl.ocupado or app.ctrl.cola.qsize():
-        ventana.update()
-        time.sleep(0.02)
-        assert time.monotonic() < limite, "la conversion no termino"
-    ventana.update()
+    _esperar_fin(app, ventana, limite=60)
 
     assert not dialogos, f"la interfaz mostro un dialogo: {dialogos}"
     assert len(list(Path(app.v_salida.get()).rglob("*.jef"))) == 3
@@ -185,12 +213,7 @@ def test_pestana_de_imagen_digitaliza_de_punta_a_punta(ventana, tmp_path, dialog
     app._digitalizar()
     assert str(app.btn_digitalizar["state"]) == "disabled"
 
-    limite = time.monotonic() + 120
-    while app.ctrl.ocupado or app.ctrl.cola.qsize():
-        ventana.update()
-        time.sleep(0.02)
-        assert time.monotonic() < limite, "la digitalizacion no termino"
-    ventana.update()
+    _esperar_fin(app, ventana, limite=120)
 
     # Si la digitalizacion fallo, aqui se ve el motivo en vez de un cuelgue.
     assert not dialogos, f"la interfaz mostro un dialogo: {dialogos}"

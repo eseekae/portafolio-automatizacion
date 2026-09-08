@@ -322,7 +322,10 @@ class Aplicacion(ttk.Frame):
         self.lbl_bordado.config(image="", text="calculando...")
         self._ocupar()
         self.barra.config(mode="indeterminate")
-        self.barra.start(12)
+        # 12 ms eran ~80 cuadros por segundo para una barra de progreso: puro
+        # gasto. Cada ciclo se reprograma solo, asi que cuanto mas corto, mas
+        # presion sobre el bucle de eventos.
+        self.barra.start(30)
         self.ctrl.iniciar_imagen(trabajo)
 
     def _abrir_salida(self) -> None:
