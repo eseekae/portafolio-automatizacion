@@ -77,6 +77,67 @@ def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path):
     assert int(app.barra["value"]) == int(app.barra["maximum"]) == 3
 
 
+def test_pestana_de_imagen_digitaliza_de_punta_a_punta(ventana, tmp_path):
+    """
+    La segunda pestana, completa: elegir imagen -> digitalizar -> archivos
+    en disco y miniatura del resultado en pantalla.
+    """
+    from PIL import Image, ImageDraw
+
+    from bordado.gui.app import Aplicacion
+
+    origen = tmp_path / "logo.png"
+    img = Image.new("RGB", (240, 240), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    d.ellipse([20, 20, 220, 220], fill=(26, 62, 110))
+    d.rectangle([90, 100, 150, 140], fill=(240, 232, 210))
+    img.save(origen)
+
+    app = Aplicacion(ventana)
+    ventana.update()
+    app.cuaderno.select(1)
+    app.v_imagen.set(str(origen))
+    ventana.update()
+    # La carpeta de salida se propone sola junto a la imagen.
+    assert app.v_salida_img.get().endswith("bordado")
+
+    app.v_ancho.set(45.0)
+    app.v_colores.set(3)
+    app.v_fmt_img["pes"].set(True)
+    ventana.update()
+
+    app._digitalizar()
+    assert str(app.btn_digitalizar["state"]) == "disabled"
+
+    limite = time.monotonic() + 120
+    while app.ctrl.ocupado or app.ctrl.cola.qsize():
+        ventana.update()
+        time.sleep(0.02)
+        assert time.monotonic() < limite, "la digitalizacion no termino"
+    ventana.update()
+
+    salida = Path(app.v_salida_img.get())
+    assert (salida / "logo.jef").exists() and (salida / "logo.pes").exists()
+    assert (salida / "logo_preview.png").exists()
+    assert str(app.btn_digitalizar["state"]) == "normal"
+    assert "Listo" in app.v_estado.get()
+    assert len(app._miniaturas) == 2      # original + resultado
+
+
+def test_imagen_inexistente_avisa_y_no_arranca(ventana, monkeypatch, tmp_path):
+    from bordado.gui import app as modulo
+
+    avisos: list = []
+    monkeypatch.setattr(modulo.messagebox, "showwarning",
+                        lambda *a, **k: avisos.append(a))
+    app = modulo.Aplicacion(ventana)
+    ventana.update()
+    app.cuaderno.select(1)
+    app.v_imagen.set(str(tmp_path / "fantasma.png"))
+    app._digitalizar()
+    assert avisos and not app.ctrl.ocupado
+
+
 def test_campo_vacio_no_convierte_el_directorio_actual(ventana, monkeypatch):
     """Sin carpeta elegida debe avisar, no ponerse a convertir donde sea."""
     from bordado.gui import app as modulo

@@ -6,11 +6,12 @@ Estructura de subcomandos pensada para crecer: hoy solo `convertir`, manana
 toda la logica vive en los modulos del paquete.
 
     matriz convertir ENTRADA... --a jef [-o SALIDA] [opciones]
+    matriz digitalizar IMAGEN --ancho 90 [--colores 5] [opciones]
 
 Ejemplos:
     matriz convertir disenos/ --a jef -o convertidos/
     matriz convertir *.pes --a jef
-    matriz convertir catalogo/ -r --a dst -o salida/ --sobrescribir
+    matriz digitalizar logo.png --ancho 80 --colores 4 -o salida/
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from .convertir import (
     FORMATOS_ESCRITURA, FORMATOS_LECTURA, FORMATOS_MAQUINA,
     Resultado, convertir_lote, recolectar,
 )
+from .parametros import AROS, ParamGlobales
 
 ANCHO = 78
 
@@ -112,6 +114,64 @@ def _cmd_convertir(args: argparse.Namespace) -> int:
     return 1 if err else 0
 
 
+def _cmd_digitalizar(args: argparse.Namespace) -> int:
+    # Los modulos de imagen traen numpy y Pillow: se importan aqui para que
+    # `matriz convertir` siga arrancando al instante sin cargarlos.
+    from .exportar import exportar
+    from .imagen.digitalizar import digitalizar
+
+    imagen = Path(args.imagen)
+    if not imagen.is_file():
+        print(f"error: no existe la imagen {imagen}", file=sys.stderr)
+        return 2
+
+    formatos = [f.lower().lstrip(".") for f in args.a]
+    desconocidos = [f for f in formatos if f not in FORMATOS_ESCRITURA]
+    if desconocidos:
+        print(f"error: no se puede escribir {', '.join(desconocidos)}", file=sys.stderr)
+        return 2
+
+    g = ParamGlobales(aro=AROS[args.aro])
+    destino = Path(args.salida) if args.salida else imagen.parent
+    nombre = args.nombre or imagen.stem
+
+    print(f"Digitalizando {imagen.name} -> {args.ancho} mm de ancho, "
+          f"{args.colores} colores")
+    print("=" * ANCHO)
+
+    patron, d, seg = digitalizar(
+        imagen, ancho_mm=args.ancho, n_colores=args.colores,
+        formato_hilos=formatos[0], g=g, px_por_mm=args.detalle,
+        densidad_mm=args.densidad, area_min_mm2=args.area_min,
+        suavizado=args.suavizado, quitar_fondo=not args.con_fondo,
+        semilla=args.semilla)
+
+    print(d.resumen())
+    print("-" * ANCHO)
+
+    reporte, archivos = exportar(patron, nombre, destino, g, formatos=formatos)
+    print(reporte.texto())
+
+    if args.ver_segmentacion:
+        ruta = _guardar_segmentacion(seg, destino / f"{nombre}_segmentacion.png")
+        archivos.append(ruta)
+
+    print("\nArchivos generados:")
+    for a in archivos:
+        print(f"  {a.name:<36} {a.stat().st_size:>9,} bytes")
+    return 0 if reporte.ok else 1
+
+
+def _guardar_segmentacion(seg, ruta: Path) -> Path:
+    """Imagen de control: muestra que vio el segmentador antes de coser."""
+    import numpy as np
+    from PIL import Image
+    vis = seg.colores[seg.etiquetas]
+    vis[seg.fondo] = (255, 255, 255)
+    Image.fromarray(vis.astype(np.uint8)).save(ruta)
+    return ruta
+
+
 def _cmd_formatos(_: argparse.Namespace) -> int:
     print("Formatos de SALIDA (a los que puedes convertir):")
     print("  de maquina : " + ", ".join(sorted(FORMATOS_MAQUINA & FORMATOS_ESCRITURA)))
@@ -153,6 +213,35 @@ def construir_parser() -> argparse.ArgumentParser:
     c.add_argument("--version-pes", type=int, choices=(1, 6), default=None,
                    help="version del formato PES (1 = maxima compatibilidad)")
     c.set_defaults(func=_cmd_convertir)
+
+    dg = sub.add_parser("digitalizar",
+                        help="convierte una imagen en una matriz de bordado")
+    dg.add_argument("imagen", help="PNG, JPG, WEBP, BMP...")
+    dg.add_argument("--ancho", type=float, required=True, metavar="MM",
+                    help="ancho final del bordado en milimetros")
+    dg.add_argument("--colores", type=int, default=5,
+                    help="cantidad de hilos (por defecto 5)")
+    dg.add_argument("--a", "--to", nargs="+", default=["jef"], metavar="FORMATO",
+                    help="formatos de salida (por defecto jef)")
+    dg.add_argument("-o", "--salida", metavar="DIR", help="carpeta de destino")
+    dg.add_argument("--nombre", help="nombre base de los archivos")
+    dg.add_argument("--aro", default="brother_5x7", choices=sorted(AROS),
+                    help="aro objetivo para el control de calidad")
+    dg.add_argument("--densidad", type=float, default=0.40, metavar="MM",
+                    help="separacion entre pasadas del relleno (0.35-0.45)")
+    dg.add_argument("--detalle", type=float, default=8.0, metavar="PX/MM",
+                    help="resolucion de trabajo (por defecto 8 px/mm)")
+    dg.add_argument("--area-min", type=float, default=1.0, metavar="MM2",
+                    help="descarta regiones menores a esta area")
+    dg.add_argument("--suavizado", type=int, default=3,
+                    help="filtro de mediana previo, en pixeles (impar; 0 lo apaga)")
+    dg.add_argument("--con-fondo", action="store_true",
+                    help="borda tambien el fondo en vez de recortarlo")
+    dg.add_argument("--semilla", type=int, default=0,
+                    help="semilla del agrupamiento (cambiala si no te gusta el corte)")
+    dg.add_argument("--ver-segmentacion", action="store_true",
+                    help="guarda una imagen con los colores detectados")
+    dg.set_defaults(func=_cmd_digitalizar)
 
     f = sub.add_parser("formatos", help="lista los formatos soportados")
     f.set_defaults(func=_cmd_formatos)
