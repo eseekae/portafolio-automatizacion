@@ -12,6 +12,10 @@ Dos herramientas en un solo programa:
   colores, traza los contornos, decide cómo coser cada región y elige los hilos.
 - **Appliqué** — para áreas grandes, cose sobre un retazo de tela en vez de
   rellenar con hilo: hasta 70% menos puntadas y una pieza flexible.
+- **SVG** — si tu arte ya es vectorial, se importa sin rasterizar: contornos
+  exactos y 29 veces más rápido.
+- **Redimensionar** — cambios chicos con corrección de puntada, y un aviso
+  claro cuando el cambio es demasiado grande para hacerse bien.
 
 Programa gratis y de código abierto. No necesitas instalar Python ni saber
 programar.
@@ -84,13 +88,27 @@ milímetros:
 
 Pestaña **Imagen a bordado**.
 
-1. **Elige la imagen.** PNG, JPG, WEBP, BMP.
+1. **Elige la imagen.** PNG, JPG, WEBP, BMP — **o un SVG**.
 2. **Di de qué tamaño la quieres** (ancho en milímetros) y **cuántos hilos**
    estás dispuesto a usar.
 3. **Pulsa Digitalizar.** Te muestra el antes y el después, y deja los
    archivos listos junto con la lista de hilos a comprar.
 
 ![Del dibujo al bordado](ejemplos/pipeline_imagen.png)
+
+## Si tienes el SVG, úsalo
+
+Un SVG no se rasteriza: los contornos salen exactos del archivo y los colores
+ya son planos. No hay que elegir cuántos hilos ni ajustar la semilla.
+
+![Desde PNG contra desde SVG](ejemplos/svg.png)
+
+Sirve cualquier SVG de Inkscape, Illustrator o Figma. Dos cosas antes de
+exportar:
+
+- **Convierte el texto a curvas.** Un `<text>` sin convertir se ignora.
+- **Los degradados no se bordan.** Cada color es un carrete; conviértelos a
+  colores planos.
 
 ## Qué esperar, con honestidad
 
@@ -164,16 +182,43 @@ La ficha técnica que se genera trae estas instrucciones junto al archivo.
 | Se bordó el fondo | Marca **Recortar el fondo** |
 | Un área grande tarda demasiado | Marca **Usar appliqué** |
 
+# Cambiar el tamaño de una matriz
+
+En la pestaña **Convertir formatos** hay un campo **Redimensionar a %**.
+
+**Solo admite cambios de hasta ±12%, y eso es una limitación física, no del
+programa.** Un archivo de bordado guarda puntadas, no formas. Al escalarlo, la
+separación entre pasadas del relleno se multiplica por el mismo factor:
+
+| Cambio | Separación | Resultado |
+|---|---|---|
+| −50% | 0.40 → 0.20 mm | agarrota la tela y rompe agujas |
+| −10% | 0.40 → 0.36 mm | correcto |
+| +10% | 0.40 → 0.44 mm | correcto |
+| +50% | 0.40 → 0.60 mm | se ve la tela entre pasadas |
+
+Dentro del rango, además de escalar se **corrigen los largos de puntada**: al
+agrandar aparecen puntadas que se enganchan y al achicar otras que rompen
+agujas. Esas sí se recalculan, porque solo dependen de dos puntos.
+
+**Para cambios grandes hay una sola forma correcta: re-digitalizar el
+original.** Vuelve a la pestaña *Imagen a bordado* con la imagen o el SVG y
+pon el ancho que quieras. Ahí las regiones todavía existen y la densidad se
+calcula de nuevo desde cero.
+
+El programa no te deja pasarte en silencio: rechaza el archivo y te dice por
+qué.
+
 ## Preguntas frecuentes
 
 **¿Modifica o borra mis archivos originales?**
 No. Solo lee. Todo lo nuevo va a una carpeta aparte.
 
-**¿Puedo agrandar o achicar un diseño con esto?**
-No, y ningún conversor debería prometerlo. Un archivo de bordado guarda
-*puntadas*, no formas: es como pasar un JPG a PNG, cambias el envase pero no
-recuperas el dibujo original. Sobre ±10-20% la densidad se arruina y el
-bordado sale con huecos o agarrota la tela.
+**¿Puedo agrandar o achicar un diseño?**
+Hasta ±12%, sí, y el programa corrige los largos de puntada. Más que eso no,
+y ningún conversor debería prometerlo: un archivo de bordado guarda *puntadas*,
+no formas. Para cambios grandes hay que re-digitalizar el original. Ver
+[Cambiar el tamaño](#cambiar-el-tamaño-de-una-matriz).
 
 **Mi antivirus lo marca como sospechoso.**
 Pasa con casi todos los programas empaquetados de esta forma; es un falso
@@ -236,6 +281,8 @@ matriz formatos                          # formatos soportados
 | `-o DIR` | carpeta de destino (por defecto, junto al original) |
 | `--plano` | vuelca todo en una carpeta; avisa si hay nombres que colisionan |
 | `--sobrescribir` | reemplaza archivos existentes (por defecto los omite) |
+| `--escala N` | redimensiona al N% (rango seguro: 88–112) |
+| `--forzar-escala` | acepta una escala fuera del rango seguro |
 | `--seco` | simulación |
 | `--sin-verificar` | omite la relectura de control |
 | `--version-pes {1,6}` | v1 = máxima compatibilidad con Brother antiguas |
@@ -255,7 +302,9 @@ matriz formatos                          # formatos soportados
 
 ```bash
 matriz digitalizar logo.png --ancho 90 --colores 5 --a jef pes -o salida/
+matriz digitalizar logo.svg --ancho 90                # vectorial, sin rasterizar
 matriz digitalizar logo.png --ancho 60 --ver-segmentacion   # imagen de control
+matriz convertir catalogo/ --a jef --escala 110       # convertir y redimensionar
 ```
 
 | Opción | Qué hace |
@@ -311,6 +360,14 @@ Decisiones que vale la pena conocer:
 - **El appliqué se decide comparando costos**, no por área: el relleno crece
   con la superficie y el appliqué con el perímetro. Un anillo tiene mucho
   perímetro para poca superficie y por eso no se aplica.
+- **El SVG se lee respetando el modelo del pintor.** Las formas se apilan: lo
+  posterior tapa lo anterior. A cada forma se le restan las posteriores que
+  caen *completamente* dentro, así cada milímetro se cose una sola vez. Solo
+  se restan las contenidas de forma inmediata: con A ⊃ B ⊃ C, restarle C a A
+  volvería a rellenar ese hueco por la regla par-impar.
+- **El redimensionado corrige lo que se puede y rechaza lo que no.** El largo
+  de puntada depende de dos puntos y se recalcula exacto; la separación entre
+  pasadas depende de las regiones, que un archivo de puntadas ya no tiene.
 
 ## Generar el ejecutable
 
@@ -364,6 +421,8 @@ convertir.py        motor de conversión por lotes (puro, sin I/O de consola)
 
 imagen/segmentar.py   imagen -> regiones planas de color (k-means en Lab)
 imagen/vectorizar.py  máscara -> anillos poligonales + simplificación
+imagen/svg.py         SVG -> regiones, sin pasar por píxeles
+redimensionar.py      escalado con corrección de largos y límite seguro
 imagen/hilos.py       color -> hilo real del catálogo de la máquina
 imagen/digitalizar.py orquesta las etapas y decide cómo coser cada región
 
@@ -425,12 +484,14 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (92 tests, en Windows / macOS / Linux):
+Implementado y testeado (154 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
 - Satin automático para regiones alargadas
 - Appliqué con secuencia de 3 pasos y verificación de las paradas
+- Importador de SVG con curvas, arcos, transformaciones y modelo del pintor
+- Redimensionado con corrección de largos y límite seguro
 - Aplicación de escritorio de dos pestañas y empaquetado a ejecutable
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
@@ -443,8 +504,10 @@ Limitaciones conocidas (documentadas en el código):
 
 - `desplazar_contorno()` es un offset por normales; falla en concavidades
   agudas. Reemplazar por Shapely (`buffer`) para producción.
-- Sin importador de SVG: el arte vectorial se rasteriza y se vuelve a
-  vectorizar, lo que pierde precisión innecesariamente.
+- El importador de SVG solo resta formas contenidas por completo. Dos formas
+  que se cruzan a medias se cosen enteras, con solape en la intersección.
+- El redimensionado no recalcula la separación entre pasadas: para eso hay que
+  re-digitalizar desde la imagen o el SVG.
 - El satin automático trata cada región por separado: no encadena varias
   ramas de una misma letra en una sola columna continua.
 - El appliqué usa el contorno completo de la región. Un diseño real suele

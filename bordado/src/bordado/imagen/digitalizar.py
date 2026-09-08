@@ -297,6 +297,36 @@ def ordenar(regiones: list[Region]) -> list[Region]:
 # Orquestacion
 # --------------------------------------------------------------------------
 
+def regiones_desde_svg(ruta: Path, ancho_mm: float, area_min_mm2: float = 1.0):
+    """
+    Lee un SVG y devuelve (regiones, colores, None) listo para el resto del
+    pipeline. Sin segmentar, sin rasterizar: los contornos vienen del archivo.
+    """
+    import numpy as np
+
+    from .svg import cargar as cargar_svg
+    from .svg import separar as separar_svg
+
+    figuras = separar_svg(cargar_svg(ruta, ancho_mm), area_min_mm2)
+    if not figuras:
+        raise ValueError(
+            "El SVG no tiene ninguna forma con relleno que se pueda bordar. "
+            "Revisa que no sean solo trazos, y convierte el texto a curvas "
+            "antes de exportar.")
+
+    colores: list[tuple[int, int, int]] = []
+    indice: dict[tuple[int, int, int], int] = {}
+    regiones: list[Region] = []
+    for color, exterior, huecos in figuras:
+        if color not in indice:
+            indice[color] = len(colores)
+            colores.append(color)
+        r = _describir(indice[color], exterior, huecos)
+        if r.grosor_mm >= GROSOR_MINIMO_MM and r.area_mm2 >= area_min_mm2:
+            regiones.append(r)
+    return regiones, np.array(colores, dtype=np.uint8), None
+
+
 def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
                 formato_hilos: str = "jef", g: ParamGlobales | None = None,
                 px_por_mm: float = 8.0, densidad_mm: float = 0.40,
@@ -304,23 +334,43 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
                 quitar_fondo: bool = True, semilla: int = 0,
                 aplique: bool = False,
                 p_aplique: ParamAplique | None = None):
-    """Devuelve (EmbPattern, Digitalizacion, Segmentacion)."""
+    """
+    Devuelve (EmbPattern, Digitalizacion, Segmentacion|None).
+
+    Si `ruta` es un SVG se salta la segmentacion por completo: el arte ya es
+    vectorial, los contornos exactos estan en el archivo y rasterizarlos para
+    volver a trazarlos seria perder precision a cambio de nada.
+    """
     g = g or ParamGlobales()
-    rgb, fondo = seg.cargar(ruta, ancho_mm, px_por_mm, suavizado)
-    if quitar_fondo:
-        fondo = seg.detectar_fondo(rgb, fondo)
-    s = seg.segmentar(rgb, fondo, n_colores, px_por_mm, semilla)
+    ruta = Path(ruta)
 
-    regiones, descartadas, area_desc = extraer_regiones(s, area_min_mm2)
+    if ruta.suffix.lower() == ".svg":
+        regiones, colores, s = regiones_desde_svg(ruta, ancho_mm, area_min_mm2)
+        descartadas = area_desc = 0
+        n_pedidos = len(colores)
+    else:
+        rgb, fondo = seg.cargar(ruta, ancho_mm, px_por_mm, suavizado)
+        if quitar_fondo:
+            fondo = seg.detectar_fondo(rgb, fondo)
+        s = seg.segmentar(rgb, fondo, n_colores, px_por_mm, semilla)
+        regiones, descartadas, area_desc = extraer_regiones(s, area_min_mm2)
+        colores = s.colores
+        n_pedidos = n_colores
+
     regiones = ordenar(regiones)
+    if regiones:
+        xs = [q[0] for r in regiones for q in r.exterior]
+        ys = [q[1] for r in regiones for q in r.exterior]
+        ancho_total, alto_total = max(xs) - min(xs), max(ys) - min(ys)
+    else:
+        ancho_total = alto_total = 0.0
 
-    alto_px, ancho_px = s.etiquetas.shape
-    d = Digitalizacion(regiones=regiones, colores=s.colores,
+    d = Digitalizacion(regiones=regiones, colores=colores,
                        descartadas=descartadas, area_descartada_mm2=area_desc,
-                       ancho_mm=ancho_px / px_por_mm, alto_mm=alto_px / px_por_mm,
-                       colores_pedidos=n_colores)
-    for i in range(s.n_colores):
-        d.hilos[i] = elegir(s.colores[i], formato_hilos)
+                       ancho_mm=ancho_total, alto_mm=alto_total,
+                       colores_pedidos=n_pedidos)
+    for i in range(len(colores)):
+        d.hilos[i] = elegir(colores[i], formato_hilos)
 
     b = ConstructorPatron(g)
     tecnicas: dict[str, int] = {}
