@@ -3,14 +3,18 @@
 [![Tests](https://github.com/eseekae/portafolio-automatizacion/actions/workflows/tests.yml/badge.svg)](https://github.com/eseekae/portafolio-automatizacion/actions/workflows/tests.yml)
 [![Ejecutables](https://github.com/eseekae/portafolio-automatizacion/actions/workflows/ejecutables.yml/badge.svg)](https://github.com/eseekae/portafolio-automatizacion/actions/workflows/ejecutables.yml)
 
-Convierte matrices de bordado entre formatos **por lotes**: eliges una carpeta
-y pasa todos tus diseños a `.JEF`, `.PES`, `.DST` o el formato que necesite tu
-máquina. Lee **47 formatos** y escribe **19**.
+Dos herramientas en un solo programa:
+
+- **Convertir por lotes** — eliges una carpeta y pasa todos tus diseños a
+  `.JEF`, `.PES`, `.DST` o el formato que necesite tu máquina. Lee **47
+  formatos** y escribe **19**.
+- **Imagen a bordado** — le das un PNG o un JPG y genera la matriz: separa los
+  colores, traza los contornos, decide cómo coser cada región y elige los hilos.
 
 Programa gratis y de código abierto. No necesitas instalar Python ni saber
 programar.
 
-![La ventana del programa](ejemplos/ventana.png)
+![La ventana del programa](ejemplos/ventana_imagen.png)
 
 ---
 
@@ -74,6 +78,48 @@ milímetros:
 | `--` | Omitido (ya estaba en ese formato, o ya existía) |
 | `XX` | El archivo está dañado y no se pudo leer |
 
+# Convertir una imagen en bordado
+
+Pestaña **Imagen a bordado**.
+
+1. **Elige la imagen.** PNG, JPG, WEBP, BMP.
+2. **Di de qué tamaño la quieres** (ancho en milímetros) y **cuántos hilos**
+   estás dispuesto a usar.
+3. **Pulsa Digitalizar.** Te muestra el antes y el después, y deja los
+   archivos listos junto con la lista de hilos a comprar.
+
+![Del dibujo al bordado](ejemplos/pipeline_imagen.png)
+
+## Qué esperar, con honestidad
+
+**Funciona bien** con logos, íconos y dibujos de colores planos — que es
+justo lo que se borda.
+
+**Funciona mal** con fotografías, degradados y sombras. El bordado no tiene
+degradados: cada color es un carrete. Una foto hay que simplificarla a mano
+antes.
+
+**No reemplaza a un digitalizador profesional.** Te deja un punto de partida
+muy avanzado en segundos; un trabajo de venta suele querer retoques.
+
+Tres cosas que sí hace bien y que la mayoría de los automáticos baratos no:
+
+- **Respeta los huecos.** El centro de una letra "o", el asa de una taza o un
+  anillo quedan vacíos, no rellenos.
+- **Descarta lo que no se puede coser.** Un trazo más fino que 0,9 mm no
+  admite puntada: se descarta en vez de romperte agujas.
+- **Te dice qué hilos comprar.** Elige de la paleta real de tu máquina, con
+  nombre y número, y avisa cuándo el color es solo aproximado.
+
+## Si el resultado no te convence
+
+| Problema | Qué mover |
+|---|---|
+| Se perdió un detalle de color | Sube **Colores de hilo** |
+| Salieron manchas sueltas feas | Baja **Colores de hilo** |
+| El corte de colores quedó raro | Cambia la **semilla** y vuelve a probar |
+| Se bordó el fondo | Marca **Recortar el fondo** |
+
 ## Preguntas frecuentes
 
 **¿Modifica o borra mis archivos originales?**
@@ -106,7 +152,14 @@ No, salvo en `.dst` y `.exp`, que por diseño no guardan color adentro. Para
 esos el programa genera un archivo de paleta al lado (`.edr` / `.inf`) para
 que no pierdas la secuencia de hilos.
 
-**¿Funciona sin internet?** Sí, todo se procesa en tu computador.
+**¿Funciona sin internet?** Sí, todo se procesa en tu computador. No se sube
+ninguna imagen a ningún servidor.
+
+**¿La digitalización usa inteligencia artificial?**
+No, y es a propósito. Usa algoritmos deterministas: agrupamiento de color en
+espacio Lab, trazado de contornos y reglas de digitalización. La ventaja es
+que con la misma imagen y la misma semilla siempre obtienes el mismo archivo,
+funciona sin conexión y no tiene costo por uso ni límites.
 
 ---
 ---
@@ -153,6 +206,56 @@ matriz formatos                          # formatos soportados
   binario: el conversor emite el `.edr` / `.inf` acompañante.
 - **No pisa nada en silencio.** Detecta colisiones de nombre y nunca escribe
   sobre el archivo de origen.
+
+## Auto-digitalización por línea de comandos
+
+```bash
+matriz digitalizar logo.png --ancho 90 --colores 5 --a jef pes -o salida/
+matriz digitalizar logo.png --ancho 60 --ver-segmentacion   # imagen de control
+```
+
+| Opción | Qué hace |
+|---|---|
+| `--ancho MM` | ancho final del bordado (obligatorio) |
+| `--colores N` | cantidad de hilos (por defecto 5) |
+| `--a FORMATO...` | uno o varios formatos de salida |
+| `--aro` | aro objetivo para el control de calidad |
+| `--densidad MM` | separación entre pasadas (0.35–0.45) |
+| `--detalle PX/MM` | resolución de trabajo (por defecto 8) |
+| `--area-min MM2` | descarta regiones menores a esta área |
+| `--semilla N` | cambia el corte de colores |
+| `--con-fondo` | borda también el fondo |
+
+### Cómo funciona
+
+```
+imagen
+  -> segmentar   k-means en espacio Lab           segmentar.py
+  -> vectorizar  máscara -> anillos + RDP         vectorizar.py
+  -> decidir     tipo de puntada y ángulo         digitalizar.py
+  -> ordenar     colores y recorrido              digitalizar.py
+  -> hilos       color -> carrete real            hilos.py
+  -> patrón      Builder -> EmbPattern            patron.py
+```
+
+Decisiones que vale la pena conocer:
+
+- **Agrupamiento en Lab, no en RGB.** RGB no es perceptualmente uniforme:
+  agrupar ahí junta colores que el ojo distingue y separa colores que ve
+  iguales.
+- **Trazado de contornos propio, sin OpenCV.** Sobre máscaras binarias el
+  borde es un polígono rectilíneo exacto; resolverlo a mano cuesta 200 líneas
+  y ahorra ~60 MB en el ejecutable. Verificado contra figuras de área
+  conocida: un cuadrado da su área exacta.
+- **Descomposición en celdas (boustrophedon)** para el relleno. Un barrido
+  ingenuo corta el hilo cada vez que una fila viene partida: en un anillo son
+  91 cortes. La descomposición correcta da 2.
+- **El grosor decide.** `2·area/perímetro` da el ancho típico de una región
+  sin calcular el eje medial. Por debajo de 0.9 mm no cabe puntada.
+- **Eje principal por PCA.** Una región alargada se rellena a lo largo de su
+  eje; una compacta, a 45°.
+- **Los hilos salen de las paletas reales** que trae pyembroidery (Janome,
+  Brother, Husqvarna), con nombre y número de catálogo. No se inventan códigos.
 
 ## Generar el ejecutable
 
@@ -201,8 +304,13 @@ formatos de archivo; solo `patron.py` toca pyembroidery.
 ```
 gui/app.py          ventana tkinter: solo widgets y presentación
 gui/controlador.py  hilo trabajador + cola de eventos (testeable sin pantalla)
-cli.py              subcomandos: convertir · [futuro] digitalizar, redimensionar
+cli.py              subcomandos: convertir · digitalizar · formatos
 convertir.py        motor de conversión por lotes (puro, sin I/O de consola)
+
+imagen/segmentar.py   imagen -> regiones planas de color (k-means en Lab)
+imagen/vectorizar.py  máscara -> anillos poligonales + simplificación
+imagen/hilos.py       color -> hilo real del catálogo de la máquina
+imagen/digitalizar.py orquesta las etapas y decide cómo coser cada región
 
 disenos/*.py        definición del diseño (geometría + colores + orden)
      |
@@ -249,20 +357,24 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 ## Hoja de ruta
 
 1. **Conversor por lotes** — hecho (CLI + ventana + ejecutable)
-2. **Auto-digitizer**: imagen (PNG/JPG/SVG) → matriz
-   - segmentación → vectorización → limpieza
-   - decisión de puntada por región → ordenamiento de objetos y colores
-   - mapeo a hilos reales (Madeira / Isacord)
-3. **Redimensionador** con recálculo de densidad — depende del punto 2:
+2. **Auto-digitizer** — hecho (CLI + ventana)
+   - segmentación en Lab → vectorización → limpieza
+   - decisión de puntada por región → ordenamiento de colores y recorrido
+   - mapeo a las paletas reales de cada máquina
+3. **Columnas satin automáticas** para regiones finas: hoy se rellenan con
+   tatami estrecho. Requiere calcular el eje medial de cada región
+4. **Redimensionador** con recálculo de densidad — se apoya en el punto 2:
    no se puede reescalar bien desde el binario, solo desde las regiones
-4. Integración de todo en un solo programa
+5. **Importador de SVG**, para saltarse la etapa de segmentación cuando el
+   arte ya viene vectorial
 
 ## Estado actual
 
-Implementado y testeado (40 tests, en Windows / macOS / Linux):
+Implementado y testeado (73 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
-- Aplicación de escritorio y empaquetado a ejecutable
+- Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
+- Aplicación de escritorio de dos pestañas y empaquetado a ejecutable
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
 - Puntada corrida y triple
@@ -274,8 +386,10 @@ Limitaciones conocidas (documentadas en el código):
 
 - `desplazar_contorno()` es un offset por normales; falla en concavidades
   agudas. Reemplazar por Shapely (`buffer`) para producción.
-- Sin importador de SVG: los diseños se definen en Python. Para arte dibujado,
-  el camino es Inkscape + Ink/Stitch (ver abajo).
+- Sin importador de SVG: el arte vectorial se rasteriza y se vuelve a
+  vectorizar, lo que pierde precisión innecesariamente.
+- Las regiones finas se rellenan con tatami estrecho en vez de satin, que es
+  lo correcto para un borde o una letra.
 - `.exp` no almacena colores: necesita un `.inf`/`.edr` acompañante.
 
 ## Ecosistema open source de bordado

@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..convertir import FORMATOS_ESCRITURA, Resultado, convertir_lote, recolectar
+from ..parametros import AROS
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,34 @@ class Trabajo:
         # La salida puede vivir dentro de la carpeta de origen: sus archivos se
         # excluyen del barrido en `_filtrar_salida`, asi el lote no se come lo
         # que el mismo genero.
+        return ""
+
+
+@dataclass(frozen=True)
+class TrabajoImagen:
+    """Lo que el usuario configuro en la pestana de digitalizacion."""
+    imagen: Path
+    ancho_mm: float = 80.0
+    n_colores: int = 5
+    formatos: tuple[str, ...] = ("jef",)
+    dir_salida: Path | None = None
+    aro: str = "brother_5x7"
+    densidad_mm: float = 0.40
+    quitar_fondo: bool = True
+    semilla: int = 0
+
+    def validar(self) -> str:
+        if not str(self.imagen).strip() or str(self.imagen) == ".":
+            return "Elige una imagen."
+        if not self.imagen.is_file():
+            return f"No existe el archivo:\n{self.imagen}"
+        if not 10.0 <= self.ancho_mm <= 400.0:
+            return "El ancho debe estar entre 10 y 400 mm."
+        if not 2 <= self.n_colores <= 12:
+            return ("Elige entre 2 y 12 colores. Mas de 12 hilos no lo borda "
+                    "nadie a mano.")
+        if not self.formatos:
+            return "Elige al menos un formato de salida."
         return ""
 
 
@@ -94,7 +123,23 @@ class Fin:
         return base + (" · CANCELADO" if self.cancelado else "")
 
 
-Evento = Inicio | Avance | Fin
+@dataclass
+class Mensaje:
+    """Linea suelta de progreso, para tareas que no van archivo por archivo."""
+    texto: str
+    tono: str = ""
+
+
+@dataclass
+class FinImagen:
+    resumen: str = ""
+    calidad: str = ""
+    archivos: list[Path] = field(default_factory=list)
+    vista_previa: Path | None = None
+    error: str = ""
+
+
+Evento = Inicio | Avance | Fin | Mensaje | FinImagen
 
 
 # --------------------------------------------------------------------------
@@ -144,6 +189,52 @@ class Controlador:
                                       daemon=True)
         self._hilo.start()
         return True
+
+    def iniciar_imagen(self, t: TrabajoImagen) -> bool:
+        if self.ocupado:
+            return False
+        self._cancelar.clear()
+        self._hilo = threading.Thread(target=self._trabajar_imagen, args=(t,),
+                                      daemon=True)
+        self._hilo.start()
+        return True
+
+    def _trabajar_imagen(self, t: TrabajoImagen) -> None:
+        """
+        Digitaliza una imagen. Corre en el hilo trabajador igual que el lote:
+        segmentar y trazar contornos toma segundos, y con la interfaz bloqueada
+        Windows la marcaria como "no responde".
+        """
+        try:
+            # numpy y Pillow se cargan solo si el usuario usa esta pestana.
+            from ..exportar import exportar
+            from ..imagen.digitalizar import digitalizar
+            from ..parametros import ParamGlobales
+
+            self.cola.put(Mensaje(f"Analizando {t.imagen.name}...", "titulo"))
+            g = ParamGlobales(aro=AROS[t.aro])
+            destino = t.dir_salida or t.imagen.parent
+            nombre = t.imagen.stem
+
+            patron, d, _ = digitalizar(
+                t.imagen, ancho_mm=t.ancho_mm, n_colores=t.n_colores,
+                formato_hilos=t.formatos[0], g=g, densidad_mm=t.densidad_mm,
+                quitar_fondo=t.quitar_fondo, semilla=t.semilla)
+
+            if self._cancelar.is_set():
+                self.cola.put(FinImagen(error="Cancelado."))
+                return
+
+            self.cola.put(Mensaje(d.resumen()))
+            reporte, archivos = exportar(patron, nombre, destino, g,
+                                         formatos=list(t.formatos))
+            previa = next((a for a in archivos if a.name.endswith("_preview.png")),
+                          None)
+            self.cola.put(FinImagen(resumen=d.resumen(),
+                                    calidad=reporte.texto(),
+                                    archivos=archivos, vista_previa=previa))
+        except Exception as e:  # noqa: BLE001 - la ventana no puede morir en silencio
+            self.cola.put(FinImagen(error=f"{type(e).__name__}: {e}"))
 
     def _trabajar(self, t: Trabajo) -> None:
         try:

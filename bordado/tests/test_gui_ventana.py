@@ -1,12 +1,26 @@
 """
-Prueba de la ventana real. Se salta sola si no hay entorno grafico
-(contenedores, CI sin display), asi nunca rompe el build.
+Prueba de la ventana real. Se salta sola donde no hay entorno grafico
+utilizable, asi nunca rompe el build.
 
 Cubre lo unico que el test del controlador no puede ver: que los widgets se
 creen, que el bucle `after()` traslade los eventos del hilo trabajador a la
 interfaz, y que los botones queden en el estado correcto al terminar.
+
+DETECCION DEL ENTORNO GRAFICO
+    En Linux sin DISPLAY, `Tk()` lanza TclError y basta con atraparlo. En
+    macOS sin sesion de ventanas (el caso de los runners de CI) `Tk()` se
+    QUEDA BLOQUEADO en codigo C en vez de fallar, y ahi no hay try/except ni
+    signal.alarm que valga: el interprete nunca recupera el control.
+
+    Por eso la comprobacion se hace una sola vez en un SUBPROCESO con
+    timeout. Un subproceso si se puede matar pase lo que pase. Donde tkinter
+    funciona la sonda vuelve en menos de un segundo y los tests corren
+    normalmente; donde se cuelga, se saltan con un motivo claro.
 """
 
+import subprocess
+import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -20,13 +34,107 @@ from bordado.puntadas import relleno_tatami
 
 tk = pytest.importorskip("tkinter")
 
+SONDA = "import tkinter; r = tkinter.Tk(); r.update(); r.destroy()"
+
+
+def _hay_entorno_grafico(timeout: float = 25.0) -> tuple[bool, str]:
+    """
+    Abre y cierra una ventana en un subproceso desechable.
+
+    La salida va a ARCHIVOS, no a tuberias. Con `capture_output` (tuberias),
+    matar al hijo no basta: `communicate()` vuelve a esperar a que se cierren,
+    y si el hijo dejo nietos vivos sujetandolas —que es justo lo que hace Tk
+    en macOS— la espera no termina nunca y el arreglo se cuelga igual que el
+    problema que venia a resolver. Un archivo no bloquea jamas.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        salida = Path(tmp) / "sonda.txt"
+        try:
+            with salida.open("w") as f:
+                p = subprocess.Popen([sys.executable, "-c", SONDA],
+                                     stdout=f, stderr=subprocess.STDOUT)
+                try:
+                    codigo = p.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    p.kill()
+                    p.poll()          # no se espera: el hijo ya no importa
+                    return False, (f"tkinter no respondio en {timeout:.0f} s "
+                                   "(sesion de ventanas no utilizable)")
+        except OSError as e:
+            return False, f"no se pudo lanzar la sonda: {e}"
+        if codigo != 0:
+            lineas = salida.read_text(errors="replace").strip().splitlines()
+            return False, (lineas or ["tkinter fallo"])[-1]
+    return True, ""
+
+
+@pytest.fixture(scope="session")
+def entorno_grafico():
+    disponible, motivo = _hay_entorno_grafico()
+    if not disponible:
+        pytest.skip(f"sin entorno grafico utilizable: {motivo}")
+    return True
+
+
+def _esperar_fin(app, ventana, limite: float = 120.0) -> None:
+    """
+    Espera a que termine el trabajo corriendo el bucle de eventos REAL.
+
+    Deliberadamente NO se bombea con `ventana.update()` en un bucle.
+    `update()` procesa eventos hasta vaciar la cola, y la barra de progreso
+    indeterminada se reprograma sola cada pocos milisegundos: si la maquina
+    tarda mas en atender un ciclo que lo que la animacion tarda en volver a
+    encolarse, la cola no se vacia nunca y `update()` no regresa.
+
+    Eso es lo que colgaba el runner de macOS. Linux y Windows, mas rapidos,
+    alcanzaban a drenarla y por eso pasaban. El sintoma era un cuelgue dentro
+    de `self.tk.call('update')`, sin excepcion ni traceback.
+
+    `mainloop()` no tiene ese problema: procesa eventos indefinidamente y se
+    sale con `quit()`. Ademas es como corre la aplicacion de verdad, asi que
+    el test se parece mas a la realidad, no menos.
+    """
+    fin = time.monotonic() + limite
+
+    def revisar() -> None:
+        # `_liberar()` reactiva los botones al terminar, en los dos caminos.
+        terminado = str(app.btn_cancelar["state"]) == "disabled"
+        if terminado or time.monotonic() > fin:
+            ventana.quit()
+        else:
+            ventana.after(30, revisar)
+
+    ventana.after(30, revisar)
+    ventana.mainloop()
+    assert str(app.btn_cancelar["state"]) == "disabled", "el trabajo no termino"
+
+
+@pytest.fixture(autouse=True)
+def dialogos(monkeypatch):
+    """
+    Neutraliza los cuadros de dialogo y guarda lo que habrian mostrado.
+
+    Un messagebox es MODAL: bloquea hasta que alguien pulsa Aceptar. Como se
+    dispara desde un callback de `after()`, se ejecuta dentro de
+    `ventana.update()`, y en CI —donde nadie pulsa nada— ese update no vuelve
+    jamas. Es exactamente lo que colgo el job de macOS.
+
+    Ademas de eliminar el cuelgue, esto deja el texto del error a la vista:
+    un fallo se convierte en un assert legible en vez de una ventana invisible.
+    """
+    from bordado.gui import app as modulo
+
+    vistos: list[tuple[str, str]] = []
+    for nombre in ("showerror", "showwarning", "showinfo"):
+        monkeypatch.setattr(
+            modulo.messagebox, nombre,
+            lambda titulo, texto="", *a, _n=nombre, **k: vistos.append((_n, str(texto))))
+    return vistos
+
 
 @pytest.fixture
-def ventana():
-    try:
-        raiz = tk.Tk()
-    except tk.TclError as e:            # sin DISPLAY / sin servidor grafico
-        pytest.skip(f"sin entorno grafico: {e}")
+def ventana(entorno_grafico):
+    raiz = tk.Tk()
     raiz.withdraw()
     yield raiz
     raiz.destroy()
@@ -44,7 +152,7 @@ def carpeta(tmp_path: Path) -> Path:
     return raiz
 
 
-def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path):
+def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path, dialogos):
     from bordado.gui.app import Aplicacion
 
     app = Aplicacion(ventana)
@@ -63,13 +171,9 @@ def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path):
     app._convertir()
     assert str(app.btn_convertir["state"]) == "disabled"
 
-    limite = time.monotonic() + 60
-    while app.ctrl.ocupado or app.ctrl.cola.qsize():
-        ventana.update()
-        time.sleep(0.02)
-        assert time.monotonic() < limite, "la conversion no termino"
-    ventana.update()
+    _esperar_fin(app, ventana, limite=60)
 
+    assert not dialogos, f"la interfaz mostro un dialogo: {dialogos}"
     assert len(list(Path(app.v_salida.get()).rglob("*.jef"))) == 3
     assert "3 convertidos" in app.v_estado.get()
     assert str(app.btn_convertir["state"]) == "normal"
@@ -77,14 +181,66 @@ def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path):
     assert int(app.barra["value"]) == int(app.barra["maximum"]) == 3
 
 
-def test_campo_vacio_no_convierte_el_directorio_actual(ventana, monkeypatch):
-    """Sin carpeta elegida debe avisar, no ponerse a convertir donde sea."""
-    from bordado.gui import app as modulo
+def test_pestana_de_imagen_digitaliza_de_punta_a_punta(ventana, tmp_path, dialogos):
+    """
+    La segunda pestana, completa: elegir imagen -> digitalizar -> archivos
+    en disco y miniatura del resultado en pantalla.
+    """
+    from PIL import Image, ImageDraw
 
-    avisos: list = []
-    monkeypatch.setattr(modulo.messagebox, "showwarning",
-                        lambda *a, **k: avisos.append(a))
-    app = modulo.Aplicacion(ventana)
+    from bordado.gui.app import Aplicacion
+
+    origen = tmp_path / "logo.png"
+    img = Image.new("RGB", (240, 240), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    d.ellipse([20, 20, 220, 220], fill=(26, 62, 110))
+    d.rectangle([90, 100, 150, 140], fill=(240, 232, 210))
+    img.save(origen)
+
+    app = Aplicacion(ventana)
+    ventana.update()
+    app.cuaderno.select(1)
+    app.v_imagen.set(str(origen))
+    ventana.update()
+    # La carpeta de salida se propone sola junto a la imagen.
+    assert app.v_salida_img.get().endswith("bordado")
+
+    app.v_ancho.set(45.0)
+    app.v_colores.set(3)
+    app.v_fmt_img["pes"].set(True)
+    ventana.update()
+
+    app._digitalizar()
+    assert str(app.btn_digitalizar["state"]) == "disabled"
+
+    _esperar_fin(app, ventana, limite=120)
+
+    # Si la digitalizacion fallo, aqui se ve el motivo en vez de un cuelgue.
+    assert not dialogos, f"la interfaz mostro un dialogo: {dialogos}"
+    salida = Path(app.v_salida_img.get())
+    assert (salida / "logo.jef").exists() and (salida / "logo.pes").exists()
+    assert (salida / "logo_preview.png").exists()
+    assert str(app.btn_digitalizar["state"]) == "normal"
+    assert "Listo" in app.v_estado.get()
+    assert len(app._miniaturas) == 2      # original + resultado
+
+
+def test_imagen_inexistente_avisa_y_no_arranca(ventana, tmp_path, dialogos):
+    from bordado.gui.app import Aplicacion
+
+    app = Aplicacion(ventana)
+    ventana.update()
+    app.cuaderno.select(1)
+    app.v_imagen.set(str(tmp_path / "fantasma.png"))
+    app._digitalizar()
+    assert dialogos and not app.ctrl.ocupado
+
+
+def test_campo_vacio_no_convierte_el_directorio_actual(ventana, dialogos):
+    """Sin carpeta elegida debe avisar, no ponerse a convertir donde sea."""
+    from bordado.gui.app import Aplicacion
+
+    app = Aplicacion(ventana)
     ventana.update()
     app._convertir()
-    assert avisos and not app.ctrl.ocupado
+    assert dialogos and not app.ctrl.ocupado

@@ -23,12 +23,13 @@ a = Analysis(
     datas=[],
     # pyembroidery resuelve el formato por extension; los lectores y escritores
     # se declaran para que el analisis estatico no deje ninguno fuera.
-    hiddenimports=["bordado", "bordado.gui.app", "bordado.convertir"],
+    hiddenimports=["bordado", "bordado.gui.app", "bordado.convertir",
+                   "bordado.imagen.digitalizar", "PIL.ImageTk"],
     hookspath=[],
     runtime_hooks=[],
-    # Peso muerto en una herramienta de conversion: sin esto el ejecutable
-    # arrastra numpy/matplotlib si estan en el entorno.
-    excludes=["numpy", "matplotlib", "scipy", "pandas", "pytest", "IPython"],
+    # numpy NO se excluye: la auto-digitalizacion lo necesita. El resto si es
+    # peso muerto que PyInstaller arrastraria solo por estar en el entorno.
+    excludes=["matplotlib", "scipy", "pandas", "pytest", "IPython"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)

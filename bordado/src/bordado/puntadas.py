@@ -15,10 +15,14 @@ from __future__ import annotations
 import math
 
 from .geometria import (
-    Polilinea, Punto, centroide, cruces_scanline, desplazar_contorno,
+    Polilinea, Punto, centroide, cruces_scanline_anillos, desplazar_contorno,
     longitud, remuestrear, rotar,
 )
 from .parametros import ParamRecta, ParamRelleno, ParamSatin
+
+# Largo maximo que los formatos DST/PES codifican en una puntada. Por encima,
+# la maquina la parte sola y el hilo queda flotando.
+CRUCE_MAX_MM = 10.0
 
 
 # --------------------------------------------------------------------------
@@ -140,9 +144,14 @@ def _remuestrear_a_n(linea: Polilinea, n: int) -> Polilinea:
 # 3. Relleno tatami
 # --------------------------------------------------------------------------
 
-def relleno_tatami(poligono: Polilinea, p: ParamRelleno) -> list[Polilinea]:
+def relleno_tatami(poligono: Polilinea, p: ParamRelleno,
+                   huecos: list[Polilinea] | None = None) -> list[Polilinea]:
     """
     Relleno por barrido (scanline) en serpentina.
+
+    `huecos` son anillos interiores que NO se cosen: la contra de una letra
+    "o", el centro de una dona. Se resuelven con la regla par-impar del
+    scanline, sin logica adicional.
 
     Se rota el poligono -angulo, se rellena con lineas HORIZONTALES (mucho
     mas simple y estable numericamente), y se rota de vuelta.
@@ -153,6 +162,8 @@ def relleno_tatami(poligono: Polilinea, p: ParamRelleno) -> list[Polilinea]:
     """
     corridas: list[Polilinea] = []
     cen = centroide(poligono)
+    huecos = huecos or []
+    anillos = [poligono, *huecos]
 
     # --- Underlay ---
     if p.underlay == "contorno":
@@ -166,64 +177,110 @@ def relleno_tatami(poligono: Polilinea, p: ParamRelleno) -> list[Polilinea]:
             desfase_mm=0.0,
             underlay="none",
         )
-        corridas.extend(_barrido(desplazar_contorno(poligono, -0.5), base, cen))
+        # El underlay se encoge hacia adentro; los huecos se agrandan, que es
+        # el mismo desplazamiento pero con el signo invertido.
+        corridas.extend(_barrido(
+            [desplazar_contorno(poligono, -0.5)]
+            + [desplazar_contorno(h, 0.5) for h in huecos], base, cen))
 
-    corridas.extend(_barrido(poligono, p, cen))
+    corridas.extend(_barrido(anillos, p, cen))
     return corridas
 
 
-def _barrido(poligono: Polilinea, p: ParamRelleno, centro: Punto) -> list[Polilinea]:
-    """Motor del tatami: barrido horizontal en el espacio rotado."""
-    rot = rotar(poligono, -p.angulo_grados, centro)
-    ys = [q[1] for q in rot]
+def _barrido(anillos: list[Polilinea], p: ParamRelleno,
+             centro: Punto) -> list[Polilinea]:
+    """
+    Motor del tatami: descomposicion en celdas (boustrophedon) + serpentina.
+
+    El barrido ingenuo cose fila por fila y corta el hilo cada vez que una
+    fila viene partida. En un anillo, TODAS las filas vienen partidas por el
+    hueco: 91 corridas y 91 cortes de hilo, cuando bastan 2.
+
+    La descomposicion correcta agrupa los tramos en CELDAS: dos tramos de
+    filas consecutivas pertenecen a la misma celda si se solapan en X. Una
+    celda es una franja continua que se puede recorrer en serpentina de una
+    sola pasada. Un anillo se descompone en 2 celdas (el lado izquierdo y el
+    derecho); una figura con tres lobulos, en 3.
+
+    Es el mismo algoritmo que se usa para planificar la cobertura de un
+    terreno con un robot: recorrer todo sin levantar la herramienta.
+    """
+    rot = [rotar(a, -p.angulo_grados, centro) for a in anillos]
+    ys = [q[1] for a in rot for q in a]
+    if not ys:
+        return []
+
+    # --- Barrido: tramos rellenables por fila ---------------------------
+    filas: list[tuple[float, list[tuple[float, float]]]] = []
     y = min(ys) + p.densidad_mm / 2.0
     y_fin = max(ys)
-
-    corridas: list[Polilinea] = []
-    corrida: Polilinea = []
-    fila = 0
-    hacia_derecha = True
-    # Un poligono concavo (o con dos lobulos) produce VARIOS tramos por fila.
-    # Saltar de un tramo al siguiente con una puntada normal dejaria un hilo
-    # cruzando el hueco. Si el hueco supera este umbral, se corta la corrida.
-    hueco_max = max(p.largo_mm * 1.5, 4.0)
-
     while y <= y_fin:
-        xs = cruces_scanline(rot, y)
-        # Pares (entra, sale) segun regla par-impar.
-        tramos = [(xs[i], xs[i + 1]) for i in range(0, len(xs) - 1, 2)]
-        if not hacia_derecha:
-            tramos = [(b, a) for a, b in reversed(tramos)]
-
-        for x0, x1 in tramos:
-            if corrida and abs(x0 - corrida[-1][0]) > hueco_max:
-                corridas.append(corrida)
-                corrida = []
-            largo = abs(x1 - x0)
-            if largo < p.largo_mm * 0.4:
-                continue  # tramo mas corto que una puntada: se descarta
-            signo = 1.0 if x1 >= x0 else -1.0
-            # Desfase de fila -> rompe la alineacion de perforaciones.
-            off = (fila * p.desfase_mm) % p.largo_mm if p.largo_mm else 0.0
-            puntos = [(x0, y)]
-            d = p.largo_mm - off if off else p.largo_mm
-            while d < largo:
-                puntos.append((x0 + signo * d, y))
-                d += p.largo_mm
-            # Si el ultimo punto quedo pegado al borde, se REEMPLAZA en vez
-            # de agregar: si no, queda una "astilla" de decimas de mm.
-            if len(puntos) > 1 and abs(largo - (d - p.largo_mm)) < p.largo_mm * 0.4:
-                puntos[-1] = (x1, y)
-            else:
-                puntos.append((x1, y))
-            corrida.extend(puntos)
-
+        xs = cruces_scanline_anillos(rot, y)
+        tramos = [(xs[i], xs[i + 1]) for i in range(0, len(xs) - 1, 2)
+                  if xs[i + 1] - xs[i] >= p.largo_mm * 0.4]
         if tramos:
-            hacia_derecha = not hacia_derecha
-        fila += 1
+            filas.append((y, tramos))
         y += p.densidad_mm
 
-    if corrida:
-        corridas.append(corrida)
-    # Se descartan fragmentos de una sola puntada y se vuelve al angulo real.
-    return [rotar(c, p.angulo_grados, centro) for c in corridas if len(c) >= 2]
+    # --- Agrupamiento en celdas conectadas ------------------------------
+    celdas: list[list[tuple[float, float, float]]] = []
+    activas: list[list[tuple[float, float, float]]] = []
+    for y, tramos in filas:
+        siguientes: list[list[tuple[float, float, float]]] = []
+        for x0, x1 in tramos:
+            elegida = None
+            for celda in activas:
+                if celda in siguientes:
+                    continue          # una celda solo continua en un tramo
+                _, cx0, cx1 = celda[-1]
+                if min(x1, cx1) > max(x0, cx0):   # se solapan en X
+                    elegida = celda
+                    break
+            if elegida is None:
+                elegida = []
+                celdas.append(elegida)
+            elegida.append((y, x0, x1))
+            siguientes.append(elegida)
+        activas = siguientes
+
+    # --- Serpentina dentro de cada celda --------------------------------
+    # Al pasar de una fila a la siguiente, la serpentina cruza la diferencia
+    # de ancho entre ambas. Donde la figura se ensancha de golpe (la punta de
+    # una estrella) ese cruce puede superar el largo maximo de puntada que la
+    # maquina codifica: 12.1 mm. Ahi se corta la corrida en vez de dejar un
+    # hilo largo que se engancha.
+    corridas: list[Polilinea] = []
+    for celda in celdas:
+        if len(celda) < 2:
+            continue      # una sola fila: no alcanza para coser nada util
+        corrida: Polilinea = []
+        for fila, (y, x0, x1) in enumerate(celda):
+            ini, fin = (x0, x1) if fila % 2 == 0 else (x1, x0)
+            if corrida and math.dist(corrida[-1], (ini, y)) > CRUCE_MAX_MM:
+                if len(corrida) >= 2:
+                    corridas.append(rotar(corrida, p.angulo_grados, centro))
+                corrida = []
+            corrida.extend(_puntos_de_fila(ini, fin, y, fila, p))
+        if len(corrida) >= 2:
+            corridas.append(rotar(corrida, p.angulo_grados, centro))
+    return corridas
+
+
+def _puntos_de_fila(x_ini: float, x_fin: float, y: float, fila: int,
+                    p: ParamRelleno) -> Polilinea:
+    """Divide un tramo en puntadas, con el desfase de fila aplicado."""
+    largo = abs(x_fin - x_ini)
+    signo = 1.0 if x_fin >= x_ini else -1.0
+    # Desfase de fila: rompe la alineacion de las perforaciones y evita la
+    # linea visible que parte el bordado ("efecto cremallera").
+    off = (fila * p.desfase_mm) % p.largo_mm if p.largo_mm else 0.0
+    puntos: Polilinea = [(x_ini, y)]
+    d = p.largo_mm - off if off else p.largo_mm
+    while d < largo:
+        puntos.append((x_ini + signo * d, y))
+        d += p.largo_mm
+    if len(puntos) > 1 and abs(largo - (d - p.largo_mm)) < p.largo_mm * 0.4:
+        puntos[-1] = (x_fin, y)      # evita una astilla de decimas de mm
+    else:
+        puntos.append((x_fin, y))
+    return puntos

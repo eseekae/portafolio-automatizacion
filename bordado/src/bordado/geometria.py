@@ -151,17 +151,30 @@ def cruces_scanline(poligono: Polilinea, y: float) -> list[float]:
     Regla par-impar (even-odd): ordenados, los cruces se toman de a pares
     (entra / sale). Es el algoritmo clasico de relleno de poligonos.
     """
+    return cruces_scanline_anillos([poligono], y)
+
+
+def cruces_scanline_anillos(anillos: list[Polilinea], y: float) -> list[float]:
+    """
+    Igual que `cruces_scanline`, pero sobre varios anillos a la vez.
+
+    Es lo que permite rellenar figuras CON HUECOS (una dona, la contra de una
+    letra "o"): la regla par-impar sale gratis. Un rayo que entra al contorno
+    exterior y luego entra al hueco acumula dos cruces, asi que el tramo
+    dentro del hueco queda fuera de los pares y no se cose.
+    """
     xs: list[float] = []
-    n = len(poligono)
-    for i in range(n):
-        x1, y1 = poligono[i]
-        x2, y2 = poligono[(i + 1) % n]
-        if y1 == y2:
-            continue  # arista horizontal: no aporta cruce
-        # Intervalo semiabierto [min, max) para no contar dos veces los vertices
-        if min(y1, y2) <= y < max(y1, y2):
-            t = (y - y1) / (y2 - y1)
-            xs.append(x1 + t * (x2 - x1))
+    for anillo in anillos:
+        n = len(anillo)
+        for i in range(n):
+            x1, y1 = anillo[i]
+            x2, y2 = anillo[(i + 1) % n]
+            if y1 == y2:
+                continue  # arista horizontal: no aporta cruce
+            # Intervalo semiabierto [min, max) para no contar dos veces los vertices
+            if min(y1, y2) <= y < max(y1, y2):
+                t = (y - y1) / (y2 - y1)
+                xs.append(x1 + t * (x2 - x1))
     return sorted(xs)
 
 
