@@ -22,10 +22,12 @@ from pathlib import Path
 
 import numpy as np
 
+from ..aplique import ParamAplique, instrucciones
+from ..aplique import secuencia as secuencia_aplique
 from ..geometria import Polilinea, Punto, area_shoelace, longitud
-from ..parametros import ParamGlobales, ParamRecta, ParamRelleno
+from ..parametros import ParamGlobales, ParamRecta, ParamRelleno, ParamSatin
 from ..patron import ConstructorPatron
-from ..puntadas import puntada_recta, relleno_tatami
+from ..puntadas import puntada_recta, relleno_tatami, satin_de_region
 from . import segmentar as seg
 from .hilos import Hilo, elegir
 from .vectorizar import separar_figuras, simplificar, trazar_anillos
@@ -33,6 +35,11 @@ from .vectorizar import separar_figuras, simplificar, trazar_anillos
 # Por debajo de este grosor no hay puntada que quepa: la region se descarta
 # en vez de generar basura que rompe agujas.
 GROSOR_MINIMO_MM = 0.9
+
+# Una franja mas ancha que esto deja el hilo flojo y se engancha: se rellena.
+SATIN_ANCHO_MAX_MM = 6.0
+# Y una region tiene que ser claramente alargada para que el satin la siga.
+SATIN_ELONGACION_MIN = 2.5
 
 
 @dataclass
@@ -59,6 +66,58 @@ class Region:
         return 2.0 * self.area_mm2 / self.perimetro_mm if self.perimetro_mm else 0.0
 
 
+# Un retazo mas chico que esto es imposible de recortar a mano con prolijidad.
+APLIQUE_AREA_MINIMA_MM2 = 300.0
+# Y solo se propone si ahorra de verdad; si no, es complicarle la vida al
+# bordador para nada.
+APLIQUE_AHORRO_MINIMO = 0.30
+
+
+def puntadas_estimadas(r: Region, densidad_mm: float,
+                       p: ParamAplique | None = None) -> tuple[int, int]:
+    """
+    Estima el costo en puntadas de rellenar la region contra aplicarla.
+
+    Relleno: N ~ area / (densidad * largo), mas el contorno de cierre.
+    Aplique: no depende del area sino del PERIMETRO, porque solo se cosen los
+    bordes. Son tres recorridos: posicion, fijacion y la columna satin de
+    cobertura, que es la cara y lleva dos penetraciones por paso.
+    """
+    p = p or ParamAplique()
+    perimetro = r.perimetro_mm or 1.0
+    relleno = int(r.area_mm2 / (densidad_mm * 3.5) + perimetro / 1.8)
+    aplique = int(perimetro / p.largo_posicion_mm
+                  + perimetro / 2.0
+                  + 2 * perimetro / p.densidad_cobertura_mm)
+    return relleno, aplique
+
+
+def elegir_tecnica(r: Region, densidad_mm: float = 0.40,
+                   aplique: bool = False,
+                   p_aplique: ParamAplique | None = None) -> str:
+    """
+    Decide COMO se cose cada region. Es donde se gana o se pierde la calidad.
+
+    - "aplique" cuando de verdad sale mas barato que rellenar. El criterio NO
+      es el area: es comparar los dos costos. Una mancha compacta y gorda se
+      ahorra miles de puntadas; un anillo delgado tiene tanto borde que la
+      cobertura satin cuesta MAS que el relleno que evita, y proponerlo seria
+      hacerle recortar tela al bordador para terminar con mas hilo.
+    - "satin" para franjas: el trazo de una letra, una hoja, una voluta. El
+      satin las sigue y luce como bordado de verdad; el tatami en una franja
+      angosta se ve como una trama pegada encima.
+    - "relleno" para todo lo demas.
+    """
+    if aplique and r.area_mm2 >= APLIQUE_AREA_MINIMA_MM2:
+        coste_relleno, coste_aplique = puntadas_estimadas(r, densidad_mm, p_aplique)
+        if coste_aplique <= coste_relleno * (1.0 - APLIQUE_AHORRO_MINIMO):
+            return "aplique"
+    if (r.elongacion > SATIN_ELONGACION_MIN
+            and GROSOR_MINIMO_MM <= r.grosor_mm <= SATIN_ANCHO_MAX_MM):
+        return "satin"
+    return "relleno"
+
+
 @dataclass
 class Digitalizacion:
     regiones: list[Region] = field(default_factory=list)
@@ -69,6 +128,9 @@ class Digitalizacion:
     ancho_mm: float = 0.0
     alto_mm: float = 0.0
     colores_pedidos: int = 0
+    paradas: int = 0
+    notas: str = ""
+    tecnicas: dict[str, int] = field(default_factory=dict)
 
     @property
     def hilos_usados(self) -> dict[int, Hilo]:
@@ -93,6 +155,9 @@ class Digitalizacion:
             lineas.append(
                 f"Colores: {len(usados)} efectivos de {self.colores_pedidos} "
                 "pedidos (el resto quedo en bordes demasiado finos)")
+        if self.tecnicas:
+            lineas.append("Tecnicas: " + ", ".join(
+                f"{n} {t}" for t, n in sorted(self.tecnicas.items())))
         lineas.append("Hilos a usar, en orden de bordado:")
         for orden, (i, h) in enumerate(usados.items(), start=1):
             n = sum(1 for r in self.regiones if r.color == i)
@@ -236,7 +301,9 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
                 formato_hilos: str = "jef", g: ParamGlobales | None = None,
                 px_por_mm: float = 8.0, densidad_mm: float = 0.40,
                 area_min_mm2: float = 1.0, suavizado: int = 3,
-                quitar_fondo: bool = True, semilla: int = 0):
+                quitar_fondo: bool = True, semilla: int = 0,
+                aplique: bool = False,
+                p_aplique: ParamAplique | None = None):
     """Devuelve (EmbPattern, Digitalizacion, Segmentacion)."""
     g = g or ParamGlobales()
     rgb, fondo = seg.cargar(ruta, ancho_mm, px_por_mm, suavizado)
@@ -256,16 +323,58 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
         d.hilos[i] = elegir(s.colores[i], formato_hilos)
 
     b = ConstructorPatron(g)
+    tecnicas: dict[str, int] = {}
+    bloques = 0
+    color_previo: str | None = None
+    notas: list[str] = []
+
     for r in regiones:
         h = d.hilos[r.color]
-        p = decidir(r, densidad_mm)
-        corridas = relleno_tatami(r.exterior, p, huecos=r.huecos)
-        # Contorno de cierre: define el borde y tapa el dentado que deja el
-        # relleno al terminar cada fila. Solo donde hay superficie que lo
-        # justifique; en una mancha chica seria mas contorno que relleno.
-        if r.area_mm2 > 15.0:
-            corridas += puntada_recta(r.exterior, ParamRecta(largo_mm=1.8),
-                                      cerrada=True)
-        b.agregar(f"c{r.color}", h.hex, corridas,
-                  catalogo=f"{h.marca} {h.catalogo} {h.nombre}".strip())
+        catalogo = f"{h.marca} {h.catalogo} {h.nombre}".strip()
+        tecnica = elegir_tecnica(r, densidad_mm, aplique, p_aplique)
+        corridas: list[Polilinea] = []
+
+        if tecnica == "aplique":
+            pasos = secuencia_aplique(r.exterior, r.huecos, h.hex,
+                                      p_aplique or ParamAplique())
+            for paso in pasos:
+                if not paso.corridas:
+                    continue
+                b.agregar(f"aplique{r.color}-{paso.orden}", paso.color,
+                          paso.corridas, catalogo=paso.nombre,
+                          forzar_bloque=True)
+                bloques += 1
+                color_previo = paso.color
+            if not notas:
+                notas.append(instrucciones(pasos))
+            tecnicas["aplique"] = tecnicas.get("aplique", 0) + 1
+            continue
+
+        if tecnica == "satin":
+            corridas = satin_de_region(
+                r.exterior, ParamSatin(densidad_mm=max(0.30, densidad_mm - 0.05)),
+                ancho_max_mm=SATIN_ANCHO_MAX_MM) or []
+            if not corridas:
+                tecnica = "relleno"      # no dio para satin: se rellena
+
+        if tecnica == "relleno":
+            p = decidir(r, densidad_mm)
+            corridas = relleno_tatami(r.exterior, p, huecos=r.huecos)
+            # Contorno de cierre: define el borde y tapa el dentado que deja el
+            # relleno al terminar cada fila. Solo donde hay superficie que lo
+            # justifique; en una mancha chica seria mas contorno que relleno.
+            if r.area_mm2 > 15.0:
+                corridas += puntada_recta(r.exterior, ParamRecta(largo_mm=1.8),
+                                          cerrada=True)
+
+        if corridas:
+            if h.hex != color_previo:
+                bloques += 1
+                color_previo = h.hex
+            b.agregar(f"c{r.color}", h.hex, corridas, catalogo=catalogo)
+            tecnicas[tecnica] = tecnicas.get(tecnica, 0) + 1
+
+    d.paradas = bloques
+    d.notas = "\n\n".join(notas)
+    d.tecnicas = tecnicas
     return b.construir(), d, s

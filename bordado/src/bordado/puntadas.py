@@ -118,6 +118,94 @@ def satin_desde_eje(eje: Polilinea, ancho_mm: float,
     return columna_satin(a, b, p)
 
 
+def rieles_desde_contorno(anillo: Polilinea) -> tuple[Polilinea, Polilinea] | None:
+    """
+    Parte el contorno de una region ALARGADA en sus dos lados largos.
+
+    Es el paso que faltaba para hacer satin automatico. Una franja (el trazo
+    de una letra, una hoja, una voluta de vapor) tiene un contorno cerrado con
+    dos lados largos y dos tapas cortas. Si se identifican las tapas, los dos
+    lados son exactamente los rieles que `columna_satin` necesita.
+
+    Las tapas se encuentran con el "doble barrido", la aproximacion clasica
+    del diametro de un conjunto de puntos:
+        A = punto mas lejano del centroide
+        B = punto mas lejano de A
+    Es mas robusto que usar el eje principal (PCA) cuando la franja viene
+    curvada, porque no supone que sea recta.
+
+    Devuelve None si la figura no se comporta como una franja: si un lado mide
+    mucho mas que el otro, no hay dos lados largos que emparejar y el satin
+    saldria torcido. En ese caso conviene rellenar.
+    """
+    n = len(anillo)
+    if n < 6:
+        return None
+
+    cx = sum(q[0] for q in anillo) / n
+    cy = sum(q[1] for q in anillo) / n
+    i_a = max(range(n), key=lambda k: math.dist(anillo[k], (cx, cy)))
+    i_b = max(range(n), key=lambda k: math.dist(anillo[k], anillo[i_a]))
+    if i_a == i_b:
+        return None
+    if i_a > i_b:
+        i_a, i_b = i_b, i_a
+
+    lado_1 = anillo[i_a:i_b + 1]
+    lado_2 = anillo[i_b:] + anillo[:i_a + 1]
+    if len(lado_1) < 2 or len(lado_2) < 2:
+        return None
+
+    l1, l2 = longitud(lado_1), longitud(lado_2)
+    if min(l1, l2) <= 0 or max(l1, l2) / min(l1, l2) > 3.0:
+        return None
+    # El segundo lado se recorre al reves para que ambos avancen en el mismo
+    # sentido; si no, el satin cruzaria la figura en diagonal.
+    return lado_1, lado_2[::-1]
+
+
+# Por debajo de este ancho la columna no admite una puntada util: ahi termina
+# el satin y empieza la punta de la figura.
+SATIN_ANCHO_MINIMO_MM = 0.8
+
+
+def satin_de_region(anillo: Polilinea, p: ParamSatin,
+                    ancho_max_mm: float | None = None) -> list[Polilinea] | None:
+    """
+    Satin sobre una region alargada, tomando su propio contorno como rieles.
+
+    Los dos rieles COMPARTEN las puntas del contorno, y hacia cada punta la
+    figura se cierra: el ancho de la columna cae hasta cero. Cosido tal cual,
+    el satin arranca y termina con puntadas de largo cero, que la maquina no
+    puede dar. Por eso se recortan los extremos donde la columna es mas
+    angosta que `SATIN_ANCHO_MINIMO_MM`, que es lo que hace cualquier
+    digitalizador serio con las puntas.
+
+    Devuelve None si la region no da para satin: o no se comporta como franja,
+    o es mas ancha de lo que el hilo aguanta sin quedar flojo, o al recortar
+    las puntas no queda columna util.
+    """
+    rieles = rieles_desde_contorno(anillo)
+    if rieles is None:
+        return None
+    a, b = rieles
+
+    largo = (longitud(a) + longitud(b)) / 2.0
+    n = max(8, min(int(largo / max(p.densidad_mm, 0.05)), 4000))
+    ma, mb = _remuestrear_a_n(a, n), _remuestrear_a_n(b, n)
+    anchos = [math.dist(ma[i], mb[i]) for i in range(n)]
+
+    tope = ancho_max_mm if ancho_max_mm is not None else p.ancho_max_mm
+    if max(anchos) > tope:
+        return None
+
+    utiles = [i for i, w in enumerate(anchos) if w >= SATIN_ANCHO_MINIMO_MM]
+    if len(utiles) < 4:
+        return None
+    i0, i1 = utiles[0], utiles[-1]
+    return columna_satin(ma[i0:i1 + 1], mb[i0:i1 + 1], p)
+
+
 def _remuestrear_a_n(linea: Polilinea, n: int) -> Polilinea:
     """Remuestrea a exactamente n puntos distribuidos por longitud de arco."""
     if len(linea) < 2:

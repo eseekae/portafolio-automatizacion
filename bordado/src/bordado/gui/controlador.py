@@ -65,6 +65,7 @@ class TrabajoImagen:
     densidad_mm: float = 0.40
     quitar_fondo: bool = True
     semilla: int = 0
+    aplique: bool = False
 
     def validar(self) -> str:
         if not str(self.imagen).strip() or str(self.imagen) == ".":
@@ -219,15 +220,22 @@ class Controlador:
             patron, d, _ = digitalizar(
                 t.imagen, ancho_mm=t.ancho_mm, n_colores=t.n_colores,
                 formato_hilos=t.formatos[0], g=g, densidad_mm=t.densidad_mm,
-                quitar_fondo=t.quitar_fondo, semilla=t.semilla)
+                quitar_fondo=t.quitar_fondo, semilla=t.semilla,
+                aplique=t.aplique)
 
             if self._cancelar.is_set():
                 self.cola.put(FinImagen(error="Cancelado."))
                 return
 
             self.cola.put(Mensaje(d.resumen()))
-            reporte, archivos = exportar(patron, nombre, destino, g,
-                                         formatos=list(t.formatos))
+            if d.notas:
+                self.cola.put(Mensaje("\n" + d.notas, "titulo"))
+            # Con aplique cada bloque de color es una parada de la maquina.
+            # Si un formato pierde una, el archivo no sirve: se comprueba.
+            reporte, archivos = exportar(
+                patron, nombre, destino, g, formatos=list(t.formatos),
+                paradas_esperadas=d.paradas if t.aplique else None,
+                notas=d.notas)
             previa = next((a for a in archivos if a.name.endswith("_preview.png")),
                           None)
             self.cola.put(FinImagen(resumen=d.resumen(),
