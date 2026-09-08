@@ -33,6 +33,7 @@ class Trabajo:
     dir_salida: Path | None = None
     sobrescribir: bool = False
     verificar: bool = True
+    escala: float = 1.0
 
     def validar(self) -> str:
         """Devuelve un mensaje de error, o cadena vacia si esta todo bien."""
@@ -257,6 +258,7 @@ class Controlador:
                 archivos, t.formato,
                 dir_salida=t.dir_salida, raiz=t.carpeta.resolve(), plano=False,
                 sobrescribir=t.sobrescribir, verificar=t.verificar,
+                escala=t.escala,
                 progreso=lambda i, n, r: self.cola.put(Avance(i, n, r)),
                 cancelado=self._cancelar.is_set,
             )

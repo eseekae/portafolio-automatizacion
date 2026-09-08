@@ -77,6 +77,7 @@ class Resultado:
     colores: int = 0
     ancho_mm: float = 0.0
     alto_mm: float = 0.0
+    escala: float = 1.0
     extras: list[Path] = field(default_factory=list)
 
     @property
@@ -153,8 +154,18 @@ def convertir_archivo(origen: Path, destino: Path, formato: str,
                       sobrescribir: bool = False,
                       verificar: bool = True,
                       paleta_aparte: bool = True,
-                      seco: bool = False) -> Resultado:
-    """Convierte un archivo. Nunca lanza excepcion: la reporta en el Resultado."""
+                      seco: bool = False,
+                      escala: float = 1.0,
+                      forzar_escala: bool = False) -> Resultado:
+    """
+    Convierte un archivo. Nunca lanza excepcion: la reporta en el Resultado.
+
+    `escala` distinta de 1.0 redimensiona ademas de convertir. Solo se admiten
+    cambios chicos: escalar puntadas multiplica la separacion entre pasadas
+    del relleno por el mismo factor, y eso no se puede recalcular sin conocer
+    las regiones. Fuera del rango seguro el archivo se rechaza (y lo dice),
+    salvo que se pase `forzar_escala`.
+    """
     r = Resultado(origen=origen, destino=destino)
 
     if formato not in FORMATOS_ESCRITURA:
@@ -194,6 +205,21 @@ def convertir_archivo(origen: Path, destino: Path, formato: str,
     x0, y0, x1, y1 = norm.bounds()
     r.ancho_mm = (x1 - x0) / UNIDADES_POR_MM
     r.alto_mm = (y1 - y0) / UNIDADES_POR_MM
+
+    # ---- Redimensionado opcional ----
+    if escala != 1.0:
+        from .redimensionar import reescalar
+        patron, informe = reescalar(patron, escala, forzar=forzar_escala)
+        if patron is None:
+            r.estado = "error"
+            r.detalle = informe.avisos[0] if informe.avisos else "escala rechazada"
+            return r
+        r.escala = escala
+        r.puntadas = informe.puntadas_despues
+        r.ancho_mm = informe.ancho_despues
+        r.alto_mm = informe.alto_despues
+        if not informe.seguro:
+            r.detalle = "escalado forzado fuera del rango seguro"
 
     if seco:
         r.detalle = "simulado"
@@ -250,7 +276,9 @@ def _verificar(destino: Path, r: Resultado) -> str:
         return "verificacion fallida: el archivo escrito no tiene puntadas"
 
     n = vuelta.get_normalized_pattern().count_stitch_commands(pe.STITCH)
-    if abs(n - r.puntadas) > 2:
+    # Al escalar se parten y fusionan puntadas, asi que la cuenta cambia a
+    # proposito: ahi se comprueban las dimensiones, que es lo que importa.
+    if r.escala == 1.0 and abs(n - r.puntadas) > 2:
         return f"verificacion fallida: {r.puntadas} puntadas -> {n}"
 
     x0, y0, x1, y1 = vuelta.bounds()

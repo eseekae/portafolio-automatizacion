@@ -42,7 +42,9 @@ MINIATURA = 210
 # Se ofrecen solo formatos de maquina: nadie quiere convertir su catalogo a .csv.
 FORMATOS = sorted(FORMATOS_MAQUINA & FORMATOS_ESCRITURA)
 FORMATOS_COMUNES = [f for f in ("jef", "pes", "dst", "vp3", "exp") if f in FORMATOS]
-IMAGENES = [("Imagenes", "*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff"),
+IMAGENES = [("Imagenes y vectores",
+             "*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff *.svg"),
+            ("Vectores SVG", "*.svg"),
             ("Todos los archivos", "*.*")]
 
 
@@ -99,6 +101,7 @@ class Aplicacion(ttk.Frame):
         self.v_recursivo = tk.BooleanVar(value=True)
         self.v_sobrescribir = tk.BooleanVar(value=False)
         self.v_verificar = tk.BooleanVar(value=True)
+        self.v_escala = tk.DoubleVar(value=100.0)
         self.v_carpeta.trace_add("write", lambda *_: self._sugerir_salida())
         self.v_formato.trace_add("write", lambda *_: self._sugerir_salida())
 
@@ -127,6 +130,13 @@ class Aplicacion(ttk.Frame):
         e.bind("<Key>", lambda _: setattr(self, "_salida_editada", True))
         ttk.Button(fila, text="Examinar...", command=self._elegir_salida).pack(
             side=LEFT, padx=(6, 0))
+
+        fila = ttk.Frame(d); fila.pack(fill=X, pady=(8, 0))
+        ttk.Label(fila, text="Redimensionar a:").pack(side=LEFT)
+        ttk.Spinbox(fila, from_=88, to=112, increment=1, width=5,
+                    textvariable=self.v_escala).pack(side=LEFT, padx=(6, 2))
+        ttk.Label(fila, text="%   (100 = sin cambio; mas alla de ±12% hay que "
+                             "re-digitalizar el original)").pack(side=LEFT)
 
         fila = ttk.Frame(d); fila.pack(fill=X, pady=(8, 0))
         ttk.Checkbutton(fila, text="Reemplazar archivos existentes",
@@ -167,7 +177,8 @@ class Aplicacion(ttk.Frame):
         ttk.Button(fila, text="Examinar...", command=self._elegir_imagen).pack(
             side=LEFT, padx=(6, 0))
         ttk.Label(c, text="Funciona mejor con logos y dibujos de colores planos "
-                          "que con fotografias.").pack(anchor="w", pady=(6, 0))
+                          "que con fotografias. Si tienes el SVG, usalo: los "
+                          "contornos salen exactos.").pack(anchor="w", pady=(6, 0))
 
         d = ttk.LabelFrame(raiz, text="2. Como bordarlo", padding=8)
         d.pack(fill=X, pady=(10, 0))
@@ -282,6 +293,7 @@ class Aplicacion(ttk.Frame):
             dir_salida=Path(salida) if salida else None,
             sobrescribir=self.v_sobrescribir.get(),
             verificar=self.v_verificar.get(),
+            escala=float(self.v_escala.get()) / 100.0,
         )
 
     def _trabajo_imagen(self) -> TrabajoImagen:

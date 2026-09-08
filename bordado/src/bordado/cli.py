@@ -46,16 +46,18 @@ def _raiz_comun(archivos: list[Path], entradas: list[str]) -> Path | None:
 
 def _tabla(resultados: list[Resultado]) -> None:
     simbolo = {"ok": "OK ", "omitido": "-- ", "error": "XX "}
-    print(f"{'':3}{'ARCHIVO':<30}{'PUNT.':>8}{'COL':>5}{'TAMANO mm':>14}  DETALLE")
+    print(f"{'':3}{'ARCHIVO':<28}{'PUNT.':>8}{'COL':>5}{'TAMANO mm':>21}  DETALLE")
     print("-" * ANCHO)
     for r in resultados:
         tam = f"{r.ancho_mm:.1f} x {r.alto_mm:.1f}" if r.puntadas else ""
+        if r.escala != 1.0 and r.puntadas:
+            tam += f" ({r.escala:.0%})"
         nombre = r.origen.name
-        if len(nombre) > 29:
-            nombre = nombre[:26] + "..."
+        if len(nombre) > 27:
+            nombre = nombre[:24] + "..."
         punt = f"{r.puntadas:,}" if r.puntadas else ""
         col = str(r.colores) if r.colores else ""
-        print(f"{simbolo[r.estado]}{nombre:<30}{punt:>8}{col:>5}{tam:>14}  {r.detalle}")
+        print(f"{simbolo[r.estado]}{nombre:<28}{punt:>8}{col:>5}{tam:>21}  {r.detalle}")
 
 
 def _cmd_convertir(args: argparse.Namespace) -> int:
@@ -80,8 +82,11 @@ def _cmd_convertir(args: argparse.Namespace) -> int:
     if formato == "pes" and args.version_pes:
         ajustes["version"] = args.version_pes
 
+    escala = args.escala / 100.0 if args.escala else 1.0
+
     print(f"Convirtiendo {len(archivos)} archivo(s) a .{formato}"
-          f"{' [SIMULACION]' if args.seco else ''}")
+          + (f" al {args.escala:.0f}%" if args.escala else "")
+          + (" [SIMULACION]" if args.seco else ""))
     print("=" * ANCHO)
 
     resultados = convertir_lote(
@@ -92,6 +97,8 @@ def _cmd_convertir(args: argparse.Namespace) -> int:
         verificar=not args.sin_verificar,
         paleta_aparte=not args.sin_paleta,
         seco=args.seco,
+        escala=escala,
+        forzar_escala=args.forzar_escala,
     )
 
     _tabla(resultados)
@@ -223,6 +230,14 @@ def construir_parser() -> argparse.ArgumentParser:
                    help="muestra que haria sin escribir nada")
     c.add_argument("--version-pes", type=int, choices=(1, 6), default=None,
                    help="version del formato PES (1 = maxima compatibilidad)")
+    c.add_argument("--escala", type=float, default=None, metavar="PORCENTAJE",
+                   help="redimensiona ademas de convertir (ej: 110 para +10%%). "
+                        "Solo se admiten cambios de hasta +-12%%: escalar "
+                        "puntadas cambia la densidad del relleno y eso no se "
+                        "puede recalcular sin las regiones originales")
+    c.add_argument("--forzar-escala", action="store_true",
+                   help="acepta una escala fuera del rango seguro, sabiendo "
+                        "que el relleno quedara mal")
     c.set_defaults(func=_cmd_convertir)
 
     dg = sub.add_parser("digitalizar",
