@@ -76,6 +76,29 @@ def entorno_grafico():
     return True
 
 
+@pytest.fixture(autouse=True)
+def dialogos(monkeypatch):
+    """
+    Neutraliza los cuadros de dialogo y guarda lo que habrian mostrado.
+
+    Un messagebox es MODAL: bloquea hasta que alguien pulsa Aceptar. Como se
+    dispara desde un callback de `after()`, se ejecuta dentro de
+    `ventana.update()`, y en CI —donde nadie pulsa nada— ese update no vuelve
+    jamas. Es exactamente lo que colgo el job de macOS.
+
+    Ademas de eliminar el cuelgue, esto deja el texto del error a la vista:
+    un fallo se convierte en un assert legible en vez de una ventana invisible.
+    """
+    from bordado.gui import app as modulo
+
+    vistos: list[tuple[str, str]] = []
+    for nombre in ("showerror", "showwarning", "showinfo"):
+        monkeypatch.setattr(
+            modulo.messagebox, nombre,
+            lambda titulo, texto="", *a, _n=nombre, **k: vistos.append((_n, str(texto))))
+    return vistos
+
+
 @pytest.fixture
 def ventana(entorno_grafico):
     raiz = tk.Tk()
@@ -96,7 +119,7 @@ def carpeta(tmp_path: Path) -> Path:
     return raiz
 
 
-def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path):
+def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path, dialogos):
     from bordado.gui.app import Aplicacion
 
     app = Aplicacion(ventana)
@@ -122,6 +145,7 @@ def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path):
         assert time.monotonic() < limite, "la conversion no termino"
     ventana.update()
 
+    assert not dialogos, f"la interfaz mostro un dialogo: {dialogos}"
     assert len(list(Path(app.v_salida.get()).rglob("*.jef"))) == 3
     assert "3 convertidos" in app.v_estado.get()
     assert str(app.btn_convertir["state"]) == "normal"
@@ -129,7 +153,7 @@ def test_ventana_convierte_de_punta_a_punta(ventana, carpeta: Path):
     assert int(app.barra["value"]) == int(app.barra["maximum"]) == 3
 
 
-def test_pestana_de_imagen_digitaliza_de_punta_a_punta(ventana, tmp_path):
+def test_pestana_de_imagen_digitaliza_de_punta_a_punta(ventana, tmp_path, dialogos):
     """
     La segunda pestana, completa: elegir imagen -> digitalizar -> archivos
     en disco y miniatura del resultado en pantalla.
@@ -168,6 +192,8 @@ def test_pestana_de_imagen_digitaliza_de_punta_a_punta(ventana, tmp_path):
         assert time.monotonic() < limite, "la digitalizacion no termino"
     ventana.update()
 
+    # Si la digitalizacion fallo, aqui se ve el motivo en vez de un cuelgue.
+    assert not dialogos, f"la interfaz mostro un dialogo: {dialogos}"
     salida = Path(app.v_salida_img.get())
     assert (salida / "logo.jef").exists() and (salida / "logo.pes").exists()
     assert (salida / "logo_preview.png").exists()
@@ -176,28 +202,22 @@ def test_pestana_de_imagen_digitaliza_de_punta_a_punta(ventana, tmp_path):
     assert len(app._miniaturas) == 2      # original + resultado
 
 
-def test_imagen_inexistente_avisa_y_no_arranca(ventana, monkeypatch, tmp_path):
-    from bordado.gui import app as modulo
+def test_imagen_inexistente_avisa_y_no_arranca(ventana, tmp_path, dialogos):
+    from bordado.gui.app import Aplicacion
 
-    avisos: list = []
-    monkeypatch.setattr(modulo.messagebox, "showwarning",
-                        lambda *a, **k: avisos.append(a))
-    app = modulo.Aplicacion(ventana)
+    app = Aplicacion(ventana)
     ventana.update()
     app.cuaderno.select(1)
     app.v_imagen.set(str(tmp_path / "fantasma.png"))
     app._digitalizar()
-    assert avisos and not app.ctrl.ocupado
+    assert dialogos and not app.ctrl.ocupado
 
 
-def test_campo_vacio_no_convierte_el_directorio_actual(ventana, monkeypatch):
+def test_campo_vacio_no_convierte_el_directorio_actual(ventana, dialogos):
     """Sin carpeta elegida debe avisar, no ponerse a convertir donde sea."""
-    from bordado.gui import app as modulo
+    from bordado.gui.app import Aplicacion
 
-    avisos: list = []
-    monkeypatch.setattr(modulo.messagebox, "showwarning",
-                        lambda *a, **k: avisos.append(a))
-    app = modulo.Aplicacion(ventana)
+    app = Aplicacion(ventana)
     ventana.update()
     app._convertir()
-    assert avisos and not app.ctrl.ocupado
+    assert dialogos and not app.ctrl.ocupado
