@@ -12,7 +12,7 @@ license = { text = "MIT" }
 dependencies = ["pyembroidery>=1.4.35", "Pillow>=10.0", "numpy>=1.24"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "pytest-timeout>=2.3"]
 build = ["pyinstaller>=6.0"]
 
 [project.scripts]
@@ -29,3 +29,12 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+# Un test colgado tiene que MORIR CON DIAGNOSTICO, no dejar el proceso vivo.
+# El metodo "thread" vuelca la pila de todos los hilos antes de matar el
+# proceso, que es lo unico que identifica al culpable cuando el bloqueo esta
+# en codigo C y no hay traceback de Python.
+# Sin esto, un cuelgue en CI aparece como un job en blanco: GitHub descarta la
+# salida parcial de un paso cancelado, asi que ni PYTHONUNBUFFERED lo salva.
+timeout = 180
+timeout_method = "thread"
+session_timeout = 900
