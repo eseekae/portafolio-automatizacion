@@ -139,17 +139,28 @@ def _cmd_digitalizar(args: argparse.Namespace) -> int:
           f"{args.colores} colores")
     print("=" * ANCHO)
 
+    from .aplique import ParamAplique
+
     patron, d, seg = digitalizar(
         imagen, ancho_mm=args.ancho, n_colores=args.colores,
         formato_hilos=formatos[0], g=g, px_por_mm=args.detalle,
         densidad_mm=args.densidad, area_min_mm2=args.area_min,
         suavizado=args.suavizado, quitar_fondo=not args.con_fondo,
-        semilla=args.semilla)
+        semilla=args.semilla, aplique=args.aplique,
+        p_aplique=ParamAplique(ancho_cobertura_mm=args.ancho_cobertura))
 
     print(d.resumen())
+    if d.notas:
+        print()
+        print(d.notas)
     print("-" * ANCHO)
 
-    reporte, archivos = exportar(patron, nombre, destino, g, formatos=formatos)
+    # Con aplique, cada bloque de color es una parada de la maquina: si un
+    # formato pierde una, el archivo no sirve. Se comprueba releyendo.
+    reporte, archivos = exportar(
+        patron, nombre, destino, g, formatos=formatos,
+        paradas_esperadas=d.paradas if args.aplique else None,
+        notas=d.notas)
     print(reporte.texto())
 
     if args.ver_segmentacion:
@@ -239,6 +250,11 @@ def construir_parser() -> argparse.ArgumentParser:
                     help="borda tambien el fondo en vez de recortarlo")
     dg.add_argument("--semilla", type=int, default=0,
                     help="semilla del agrupamiento (cambiala si no te gusta el corte)")
+    dg.add_argument("--aplique", action="store_true",
+                    help="usa aplique (coser sobre un retazo de tela) en las "
+                         "areas grandes donde ahorre puntadas")
+    dg.add_argument("--ancho-cobertura", type=float, default=2.5, metavar="MM",
+                    help="ancho del satin que tapa el borde del retazo")
     dg.add_argument("--ver-segmentacion", action="store_true",
                     help="guarda una imagen con los colores detectados")
     dg.set_defaults(func=_cmd_digitalizar)

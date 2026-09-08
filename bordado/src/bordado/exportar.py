@@ -32,7 +32,8 @@ AJUSTES = {
 
 def exportar(patron: pe.EmbPattern, nombre: str, destino: Path,
              g: ParamGlobales, formatos: list[str] | None = None,
-             comprimir: bool = True) -> tuple[Reporte, list[Path]]:
+             comprimir: bool = True, paradas_esperadas: int | None = None,
+             notas: str = "") -> tuple[Reporte, list[Path]]:
     """
     Exporta el patron a todos los formatos pedidos y devuelve (reporte, archivos).
 
@@ -44,13 +45,27 @@ def exportar(patron: pe.EmbPattern, nombre: str, destino: Path,
     destino.mkdir(parents=True, exist_ok=True)
     generados: list[Path] = []
 
-    reporte = validar(patron, g)
+    reporte = validar(patron, g, paradas_esperadas)
 
     for fmt in formatos:
         ruta = destino / f"{nombre}.{fmt}"
         # write() enruta al writer correcto por extension y aplica el encoder.
         pe.write(patron, str(ruta), AJUSTES.get(fmt, {}))
         generados.append(ruta)
+        # Las paradas se verifican POR FORMATO releyendo lo escrito: no todos
+        # los escritores las conservan igual. El de .pes, por ejemplo, fusiona
+        # dos bloques contiguos del mismo color y ahi una parada desaparece.
+        if paradas_esperadas is not None:
+            try:
+                leidas = pe.read(str(ruta)).count_color_changes() + 1
+            except Exception as e:  # noqa: BLE001
+                reporte.errores.append(f".{fmt}: no se pudo releer ({e})")
+                continue
+            if leidas != paradas_esperadas:
+                reporte.errores.append(
+                    f".{fmt} perdio paradas: quedaron {leidas} de "
+                    f"{paradas_esperadas}. Ese formato no sirve para este "
+                    "diseno de aplique.")
 
     # --- Vista previa PNG (requiere Pillow) ---
     # OJO con el eje Y: los formatos de bordado usan Y hacia ARRIBA (como en
@@ -96,7 +111,8 @@ def exportar(patron: pe.EmbPattern, nombre: str, destino: Path,
     generados.append(fj)
 
     ft = destino / f"{nombre}_ficha.txt"
-    ft.write_text(reporte.texto() + "\n\nSECUENCIA DE HILOS\n" + "\n".join(
+    ft.write_text((notas + "\n\n" if notas else "")
+                  + reporte.texto() + "\n\nSECUENCIA DE HILOS\n" + "\n".join(
         f"  {h['orden']}. {h['hex']}  {h['descripcion']}"
         for h in ficha["secuencia_de_hilos"]
     ) + "\n", encoding="utf-8")

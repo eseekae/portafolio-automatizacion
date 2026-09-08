@@ -32,6 +32,7 @@ class ObjetoBordado:
     color: str                       # "#RRGGBB"
     corridas: list[Polilinea]
     catalogo: str = ""               # ej. "Madeira Polyneon 1801" (para la ficha tecnica)
+    forzar_bloque: bool = False      # exige parada aunque el color se repita
 
 
 class ConstructorPatron:
@@ -49,10 +50,17 @@ class ConstructorPatron:
         self.objetos: list[ObjetoBordado] = []
 
     def agregar(self, nombre: str, color: str, corridas: list[Polilinea],
-                catalogo: str = "") -> "ConstructorPatron":
+                catalogo: str = "", forzar_bloque: bool = False) -> "ConstructorPatron":
+        """
+        `forzar_bloque` exige que este objeto empiece un bloque de color nuevo
+        aunque el color coincida con el anterior. Lo usa el aplique, donde la
+        parada de la maquina es la instruccion para el operador y fusionar dos
+        bloques la haria desaparecer.
+        """
         corridas = [c for c in corridas if len(c) >= 2]
         if corridas:
-            self.objetos.append(ObjetoBordado(nombre, color, corridas, catalogo))
+            self.objetos.append(
+                ObjetoBordado(nombre, color, corridas, catalogo, forzar_bloque))
         return self
 
     # ----------------------------------------------------------------------
@@ -63,11 +71,12 @@ class ConstructorPatron:
         ultimo: tuple[float, float] | None = None
 
         for obj in self.objetos:
-            # --- Cambio de hilo solo si el color realmente cambia ---
-            if color_actual is not None and obj.color != color_actual:
+            # --- Cambio de hilo si el color cambia, o si se exige parada ---
+            nuevo_bloque = obj.color != color_actual or obj.forzar_bloque
+            if color_actual is not None and nuevo_bloque:
                 patron.trim()
                 patron.color_change()
-            if obj.color != color_actual:
+            if nuevo_bloque:
                 patron.add_thread({"hex": obj.color, "description": obj.nombre,
                                    "catalog_number": obj.catalogo})
                 color_actual = obj.color

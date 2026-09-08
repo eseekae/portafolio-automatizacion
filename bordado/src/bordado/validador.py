@@ -51,7 +51,14 @@ class Reporte:
         return "\n".join(lineas)
 
 
-def validar(patron: pe.EmbPattern, g: ParamGlobales) -> Reporte:
+def validar(patron: pe.EmbPattern, g: ParamGlobales,
+            paradas_esperadas: int | None = None) -> Reporte:
+    """
+    `paradas_esperadas` es la cantidad de bloques de color que el diseno DEBE
+    tener. Se usa en aplique, donde cada parada es una instruccion para el
+    operador: si una se pierde, la maquina cose los pasos de corrido y arruina
+    la pieza. Por eso ahi es un ERROR, no una advertencia.
+    """
     r = Reporte()
 
     # Normalizamos: aplicamos el mismo encoder que usan los writers, para
@@ -135,6 +142,11 @@ def validar(patron: pe.EmbPattern, g: ParamGlobales) -> Reporte:
     if n_colores > 8:
         r.advertencias.append(
             f"{n_colores} colores. Sobre 8 cambios el cliente domestico se frustra.")
+    if paradas_esperadas is not None and n_colores != paradas_esperadas:
+        r.errores.append(
+            f"El diseno quedo con {n_colores} bloques de color y necesita "
+            f"{paradas_esperadas}. Cada bloque es una parada de la maquina; "
+            "si falta una, los pasos se cosen de corrido.")
     dens = n_puntadas / area_cm2
     if dens > 900:
         r.advertencias.append(

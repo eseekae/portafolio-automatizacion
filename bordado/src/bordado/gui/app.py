@@ -153,6 +153,7 @@ class Aplicacion(ttk.Frame):
         self.v_aro = tk.StringVar(value="brother_5x7")
         self.v_densidad = tk.DoubleVar(value=0.40)
         self.v_quitar_fondo = tk.BooleanVar(value=True)
+        self.v_aplique = tk.BooleanVar(value=False)
         self.v_semilla = tk.IntVar(value=0)
         self.v_salida_img = tk.StringVar()
         self.v_fmt_img = {f: tk.BooleanVar(value=(f == "jef"))
@@ -189,6 +190,13 @@ class Aplicacion(ttk.Frame):
                 side=LEFT, padx=(6, 0))
         ttk.Checkbutton(fila, text="Recortar el fondo",
                         variable=self.v_quitar_fondo).pack(side=LEFT, padx=(20, 0))
+
+        fila = ttk.Frame(d); fila.pack(fill=X, pady=(8, 0))
+        ttk.Checkbutton(fila, text="Usar aplique en las areas grandes",
+                        variable=self.v_aplique).pack(side=LEFT)
+        ttk.Label(fila, text="(coses sobre un retazo de tela en vez de rellenar "
+                             "con hilo: mucho mas rapido y flexible)"
+                  ).pack(side=LEFT, padx=(8, 0))
 
         fila = ttk.Frame(d); fila.pack(fill=X, pady=(8, 0))
         ttk.Label(fila, text="Guardar en:").pack(side=LEFT)
@@ -288,6 +296,7 @@ class Aplicacion(ttk.Frame):
             densidad_mm=float(self.v_densidad.get()),
             quitar_fondo=self.v_quitar_fondo.get(),
             semilla=int(self.v_semilla.get()),
+            aplique=self.v_aplique.get(),
         )
 
     def _convertir(self) -> None:

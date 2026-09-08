@@ -104,9 +104,16 @@ def remuestrear(polilinea: Polilinea, paso_mm: float,
             salida.append((p0[0] + ux * avance, p0[1] + uy * avance))
             avance += paso_mm
         resto = avance - seg
-    # Garantiza que el ultimo punto real quede cosido (cierra la forma).
-    if math.dist(salida[-1], pts[-1]) > 1e-6:
-        salida.append(pts[-1])
+    # El ultimo punto real siempre se cose, para que la forma cierre. Pero si
+    # el paso no cabe un numero entero de veces, agregarlo dejaria una astilla
+    # de decimas de milimetro: por debajo de medio paso se REEMPLAZA el ultimo
+    # punto en vez de anadir otro.
+    final = pts[-1]
+    if math.dist(salida[-1], final) > 1e-6:
+        if len(salida) > 1 and math.dist(salida[-1], final) < paso_mm * 0.5:
+            salida[-1] = final
+        else:
+            salida.append(final)
     return salida
 
 

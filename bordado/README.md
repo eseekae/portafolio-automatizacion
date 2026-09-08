@@ -10,6 +10,8 @@ Dos herramientas en un solo programa:
   formatos** y escribe **19**.
 - **Imagen a bordado** — le das un PNG o un JPG y genera la matriz: separa los
   colores, traza los contornos, decide cómo coser cada región y elige los hilos.
+- **Appliqué** — para áreas grandes, cose sobre un retazo de tela en vez de
+  rellenar con hilo: hasta 70% menos puntadas y una pieza flexible.
 
 Programa gratis y de código abierto. No necesitas instalar Python ni saber
 programar.
@@ -111,6 +113,47 @@ Tres cosas que sí hace bien y que la mayoría de los automáticos baratos no:
 - **Te dice qué hilos comprar.** Elige de la paleta real de tu máquina, con
   nombre y número, y avisa cuándo el color es solo aproximado.
 
+# Appliqué: bordar sobre tela en vez de rellenar
+
+Rellenar un parche grande con hilo es lento y deja la tela acartonada. El
+appliqué recorta un retazo del color que quieras y cose **solo los bordes**.
+
+![Relleno contra appliqué](ejemplos/aplique.png)
+
+Marca **Usar appliqué en las áreas grandes** y el programa decide solo dónde
+conviene. No es un umbral por tamaño: compara los dos costos y solo lo propone
+cuando ahorra de verdad.
+
+| Diámetro del parche | Relleno | Appliqué | Decisión |
+|---|---:|---:|---|
+| 25 mm | 394 punt | 519 punt | rellenar |
+| 40 mm | 966 punt | 831 punt | rellenar (ahorra poco) |
+| 60 mm | 2 123 punt | 1 246 punt | **appliqué** |
+| 100 mm | 5 869 punt | 2 199 punt | **appliqué** |
+
+Un anillo delgado **no** se aplica aunque sea grande: tiene tanto borde que la
+cobertura costaría más que el relleno que evita.
+
+## Cómo se borda un appliqué
+
+La máquina se detiene entre pasos, como si pidiera un cambio de color. **No
+cambies el hilo**: la parada está ahí para que trabajes la tela.
+
+1. **Posición** — cose una guía sobre la tela base y se detiene. Pon el retazo
+   encima, cubriendo la línea.
+2. **Fijación** — sujeta el retazo y se detiene. Recorta la tela sobrante al
+   ras de la costura, con tijera curva.
+3. **Cobertura** — una columna satin tapa el borde recortado. Es el único paso
+   que se ve en la pieza terminada.
+
+La ficha técnica que se genera trae estas instrucciones junto al archivo.
+
+> **Por qué los pasos salen de colores distintos:** es lo que obliga a la
+> máquina a detenerse. El programa verifica, formato por formato, que las
+> paradas sobrevivieron al guardar — si una se pierde, la máquina cosería los
+> tres pasos de corrido y arruinaría la pieza, así que eso es un error y no
+> se exporta.
+
 ## Si el resultado no te convence
 
 | Problema | Qué mover |
@@ -119,6 +162,7 @@ Tres cosas que sí hace bien y que la mayoría de los automáticos baratos no:
 | Salieron manchas sueltas feas | Baja **Colores de hilo** |
 | El corte de colores quedó raro | Cambia la **semilla** y vuelve a probar |
 | Se bordó el fondo | Marca **Recortar el fondo** |
+| Un área grande tarda demasiado | Marca **Usar appliqué** |
 
 ## Preguntas frecuentes
 
@@ -225,6 +269,8 @@ matriz digitalizar logo.png --ancho 60 --ver-segmentacion   # imagen de control
 | `--area-min MM2` | descarta regiones menores a esta área |
 | `--semilla N` | cambia el corte de colores |
 | `--con-fondo` | borda también el fondo |
+| `--aplique` | usa appliqué donde ahorre puntadas |
+| `--ancho-cobertura MM` | ancho del satin que tapa el borde del retazo |
 
 ### Cómo funciona
 
@@ -256,6 +302,15 @@ Decisiones que vale la pena conocer:
   eje; una compacta, a 45°.
 - **Los hilos salen de las paletas reales** que trae pyembroidery (Janome,
   Brother, Husqvarna), con nombre y número de catálogo. No se inventan códigos.
+- **Satin automático por doble barrido.** Una franja tiene dos lados largos y
+  dos tapas; encontradas las tapas, los lados *son* los rieles del satin. Las
+  tapas se hallan con `A = punto más lejano del centroide`, `B = más lejano de
+  A` — más robusto que el eje principal cuando la franja viene curvada. Los
+  extremos se recortan donde la columna baja de 0.8 mm, porque ahí no cabe
+  puntada.
+- **El appliqué se decide comparando costos**, no por área: el relleno crece
+  con la superficie y el appliqué con el perímetro. Un anillo tiene mucho
+  perímetro para poca superficie y por eso no se aplica.
 
 ## Generar el ejecutable
 
@@ -370,10 +425,12 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (73 tests, en Windows / macOS / Linux):
+Implementado y testeado (92 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
+- Satin automático para regiones alargadas
+- Appliqué con secuencia de 3 pasos y verificación de las paradas
 - Aplicación de escritorio de dos pestañas y empaquetado a ejecutable
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
@@ -388,8 +445,10 @@ Limitaciones conocidas (documentadas en el código):
   agudas. Reemplazar por Shapely (`buffer`) para producción.
 - Sin importador de SVG: el arte vectorial se rasteriza y se vuelve a
   vectorizar, lo que pierde precisión innecesariamente.
-- Las regiones finas se rellenan con tatami estrecho en vez de satin, que es
-  lo correcto para un borde o una letra.
+- El satin automático trata cada región por separado: no encadena varias
+  ramas de una misma letra en una sola columna continua.
+- El appliqué usa el contorno completo de la región. Un diseño real suele
+  aplicar la silueta entera y bordar los detalles encima.
 - `.exp` no almacena colores: necesita un `.inf`/`.edr` acompañante.
 
 ## Ecosistema open source de bordado
