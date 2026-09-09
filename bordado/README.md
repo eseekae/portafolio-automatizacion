@@ -146,6 +146,12 @@ Tres cosas que sí hace bien y que la mayoría de los automáticos baratos no:
 
 - **Respeta los huecos.** El centro de una letra "o", el asa de una taza o un
   anillo quedan vacíos, no rellenos.
+- **Distingue el blanco del fondo del blanco del dibujo.** El fondo se quita
+  rellenando desde el borde hacia adentro, no borrando ese color en toda la
+  imagen. En un escudo blanco sobre fondo blanco las dos cosas son del mismo
+  color y son cosas distintas: lo de afuera no se borda, el monograma de
+  adentro **sí** — es hilo blanco, que sobre una prenda de color es justo lo
+  que se ve.
 - **Borda el detalle fino en vez de tirarlo.** Un trazo de medio milímetro
   —el año de un escudo, un contorno delgado, la contra de una letra— no se
   puede *rellenar*: no cabe la puntada. Pero sí se puede *bordar*, con una
@@ -782,7 +788,7 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (262 tests, en Windows / macOS / Linux):
+Implementado y testeado (267 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales

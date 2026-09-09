@@ -413,3 +413,81 @@ def test_un_contorno_finisimo_se_cose_como_linea(tmp_path: Path):
     _, d, _ = digitalizar(f, ancho_mm=80, n_colores=5)
     trazos = [r for r in d.regiones if r.trazo]
     assert trazos and elegir_tecnica(trazos[0]) == "corrida"
+
+
+# ------------------------------------------------ el blanco tambien se borda
+#
+# Reportado sobre la insignia de un colegio: "no aparece el color blanco...
+# que sea una parte blanca no significa que no esta ahi".
+#
+# Tenia razon. El fondo se detectaba POR COLOR, asi que en un escudo blanco
+# sobre fondo blanco se borraban las dos cosas: el fondo y el monograma. En el
+# bordado esa parte no es "nada", es hilo blanco, que sobre una polera de
+# color es justo lo que se ve.
+
+def figura_con_blanco_dentro(tmp_path: Path) -> Path:
+    """Cuadro azul sobre fondo blanco, con una franja blanca por dentro."""
+    img = Image.new("RGB", (300, 300), "white")
+    d = ImageDraw.Draw(img)
+    d.rectangle([(40, 40), (260, 260)], fill=(26, 47, 92))
+    d.rectangle([(110, 90), (190, 210)], fill="white")     # el "monograma"
+    f = tmp_path / "con_blanco.png"
+    img.save(f)
+    return f
+
+
+def test_el_blanco_de_dentro_no_es_fondo(tmp_path: Path):
+    from bordado.imagen.segmentar import cargar, detectar_fondo
+    rgb, alfa = cargar(figura_con_blanco_dentro(tmp_path), 60.0, 8.0)
+    fondo = detectar_fondo(rgb, alfa)
+    alto, ancho = fondo.shape
+    assert fondo[0, 0], "el fondo de afuera tiene que marcarse"
+    assert not fondo[alto // 2, ancho // 2], (
+        "la franja blanca de adentro se marco como fondo: se pierde el hilo blanco")
+
+
+def test_el_blanco_de_dentro_llega_a_la_matriz(tmp_path: Path):
+    _, d, _ = digitalizar(figura_con_blanco_dentro(tmp_path), ancho_mm=60,
+                          n_colores=3)
+    hexes = {d.hilos[r.color].hex for r in d.regiones}
+    assert "#FFFFFF" in hexes, f"no se borda ningun blanco; hilos: {hexes}"
+
+
+def test_el_fondo_de_afuera_se_sigue_quitando(tmp_path: Path):
+    """El arreglo no puede traerse el fondo de vuelta."""
+    from bordado.imagen.segmentar import cargar, detectar_fondo
+    rgb, alfa = cargar(figura_con_blanco_dentro(tmp_path), 60.0, 8.0)
+    fondo = detectar_fondo(rgb, alfa)
+    alto, ancho = fondo.shape
+    for punto in ((0, 0), (0, ancho - 1), (alto - 1, 0), (alto - 1, ancho - 1)):
+        assert fondo[punto], f"la esquina {punto} deberia ser fondo"
+    assert fondo.mean() > 0.1, "no se quito practicamente nada de fondo"
+
+
+def test_un_borde_heterogeneo_no_quita_nada(tmp_path: Path):
+    """Sin fondo plano no hay nada que quitar, y adivinar seria peor."""
+    from bordado.imagen.segmentar import cargar, detectar_fondo
+    import numpy as np
+    ruido = np.random.RandomState(0).randint(0, 255, (120, 120, 3), dtype=np.uint8)
+    f = tmp_path / "ruido.png"
+    Image.fromarray(ruido).save(f)
+    rgb, alfa = cargar(f, 40.0, 6.0)
+    assert not detectar_fondo(rgb, alfa).any()
+
+
+def test_una_bahia_abierta_si_es_fondo(tmp_path: Path):
+    """
+    Una entrante del fondo, aunque este rodeada por tres lados, sigue siendo
+    fondo: se llega a ella desde el borde sin cruzar el dibujo.
+    """
+    from bordado.imagen.segmentar import cargar, detectar_fondo
+    img = Image.new("RGB", (300, 300), "white")
+    d = ImageDraw.Draw(img)
+    d.rectangle([(40, 40), (260, 260)], fill=(26, 47, 92))
+    d.rectangle([(120, 180), (180, 262)], fill="white")     # muesca por abajo
+    f = tmp_path / "bahia.png"
+    img.save(f)
+    rgb, alfa = cargar(f, 60.0, 8.0)
+    fondo = detectar_fondo(rgb, alfa)
+    alto, ancho = fondo.shape
+    assert fondo[int(alto * 0.72), ancho // 2], "la muesca abierta es fondo"
