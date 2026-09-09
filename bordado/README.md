@@ -225,6 +225,7 @@ matriz analizar dragon.pes --velocidad 500
   Densidad (puntadas/cm2)........... 200
   Hilo (m).......................... 34.8
   Cortes de hilo.................... 180
+  Saltos (aguja en vacio)........... 240  ·  190 cm de recorrido
 --------------------------------------------------------------
  TIEMPO ESTIMADO
   Cosiendo..........................  24.8 min
@@ -235,6 +236,65 @@ matriz analizar dragon.pes --velocidad 500
 Pon la velocidad **de tu máquina** (`--velocidad`, en puntadas por minuto; las
 domésticas van entre 400 y 850). El total incluye los cortes de hilo, que
 detienen la máquina ~1,5 s cada uno — contar solo puntadas siempre subestima.
+
+## Si la máquina se detiene todo el rato
+
+Un diseño de un solo color **no debería detener la máquina nunca**. Si lo hace,
+son **cortes de hilo**, no pausas: cada corte para el cabezal ~1,5 s, y en
+máquinas sin cortador automático te obliga a intervenir.
+
+Los cortes salen de que la aguja tenga que **viajar lejos** entre una zona y
+otra. Hay dos cosas que lo evitan.
+
+**1. Ordenar las corridas.** El programa las ordena por cercanía y puede darlas
+vuelta, porque una costura se puede hacer en cualquiera de los dos sentidos.
+Eso no cambia ni una puntada, solo en qué secuencia se cosen. Sobre el diseño
+de prueba:
+
+| | Antes | Ahora |
+|---|---:|---:|
+| Cortes de hilo | 17 | **8** |
+| Recorrido en vacío | 80 cm | **47 cm** |
+| Puntadas | 2 934 | 2 934 *(idénticas)* |
+
+**2. Enlazar en vez de saltar.** Éste era el error que se veía en la máquina:
+terminaba una zona, **cortaba el hilo, volvía al origen y se movía al lado**
+para seguir bordando… a 2 mm de donde estaba. Cortar para recorrer 2 mm no
+tiene sentido: sale más barato **seguir cosiendo** hasta allá.
+
+Ahora la transición entre dos costuras se decide por la distancia:
+
+| Distancia | Qué hace la máquina | Costo |
+|---|---|---|
+| ≤ 5 mm (`enlace_max_mm`) | **cose** hasta el punto siguiente | 1-2 puntadas, sin parar |
+| 5 – 12 mm | salta con la aguja arriba | deja un hilo suelto |
+| > 12 mm (`salto_max_sin_corte_mm`) | remata y **corta** | ~1,5 s de máquina |
+
+Medido sobre un diseño de un color con mucho detalle fino (un cuerpo relleno
+más 24 piezas chicas de satín, que es justo el caso donde se notaba):
+
+| | Sin enlace | Con enlace |
+|---|---:|---:|
+| Saltos de aguja | 51 | **26** |
+| Recorrido en vacío | 32,3 cm | **30,4 cm** |
+| Puntadas | 2 552 | 2 528 |
+
+Los saltos caen a la mitad y las puntadas incluso bajan, porque el remate y la
+entrada que exigía cada corte desaparecen. En diseños de manchas grandes y
+separadas el efecto es menor: ahí los saltos son largos de verdad y cortar
+sigue siendo lo correcto.
+
+El selector **Calidad** también decide cuándo cortar y cuándo saltar:
+
+| Perfil | Corta si el salto pasa de | Resultado |
+|---|---|---|
+| `alta` | 8 mm | menos hilo suelto, más paradas |
+| `equilibrada` | 12 mm | equilibrio |
+| `rapida` | 18 mm | la mitad de paradas, algún hilo que recortar |
+
+Un salto no detiene la máquina, pero deja un hilo cruzando la tela. Las
+máquinas de la última década lo cortan solas; las viejas te dejan el hilo para
+que lo recortes.
 
 ## Las tres palancas
 
@@ -307,6 +367,51 @@ No, y es a propósito. Usa algoritmos deterministas: agrupamiento de color en
 espacio Lab, trazado de contornos y reglas de digitalización. La ventaja es
 que con la misma imagen y la misma semilla siempre obtienes el mismo archivo,
 funciona sin conexión y no tiene costo por uso ni límites.
+
+---
+
+# Ver cómo la máquina va a bordar (antes de bordar)
+
+Un archivo de bordado es una lista de perforaciones: leerlo no dice nada,
+**verlo coserse lo dice todo**. El simulador reproduce la matriz puntada a
+puntada en el navegador.
+
+Desde el programa: después de digitalizar una imagen aparece el botón
+**«Ver cómo lo borda la máquina»**.
+
+Desde la terminal:
+
+```bash
+matriz simular dragon.pes
+# escribe dragon_simulacion.html — ábrelo con doble clic
+```
+
+**Qué se ve**
+
+- La aguja avanzando, con reproducción, pausa, retroceso y 4 velocidades.
+- La barra para **ir a una puntada exacta**: si sospechas de una zona, te
+  paras justo ahí.
+- Los **saltos** en gris punteado y los **cortes de hilo** con una X roja.
+  Ahí se ve de un vistazo si la máquina está cortando al lado de donde
+  estaba.
+- Los **problemas** marcados con un punto: puntadas bajo 0,6 mm (la máquina
+  puede saltárselas o romper la aguja), puntadas sobre 12,1 mm (el formato no
+  las puede representar) y saltos largos (hilo cruzando la pieza).
+- El panel **Revisión** con el recuento de cada cosa.
+
+**Para qué sirve de verdad**
+
+| Falla | Cómo se ve |
+|---|---|
+| Recorrido malo | la aguja va y viene de un extremo al otro |
+| Cortes de más | X rojas seguidas en la misma zona |
+| Hilos cruzando | líneas punteadas largas sobre el diseño |
+| Zonas cosidas dos veces | el mismo tramo se repinta |
+| Orden de colores | qué color tapa a cuál |
+
+El HTML es **autónomo**: no necesita internet, ni tener el programa instalado.
+Se lo puedes mandar por correo o WhatsApp a un cliente para que apruebe el
+diseño antes de que gastes hilo y tela.
 
 ---
 ---
@@ -428,6 +533,11 @@ Decisiones que vale la pena conocer:
 - **El redimensionado corrige lo que se puede y rechaza lo que no.** El largo
   de puntada depende de dos puntos y se recalcula exacto; la separación entre
   pasadas depende de las regiones, que un archivo de puntadas ya no tiene.
+- **Las corridas se ordenan por cercanía, con la aguja donde está de verdad.**
+  Ordenar por el centro de cada región supone dónde terminará la costura, y en
+  formas alargadas esa suposición se equivoca por centímetros. Solo se reordena
+  dentro de cada fase: el underlay tiene que coserse antes del relleno que
+  sostiene.
 - **El tiempo se estima con cortes y cambios de color, no solo con puntadas.**
   Cada corte detiene la máquina ~1,5 s y cada cambio de color son ~25 s de
   reenhebrado. En un diseño picoteado eso son minutos.
@@ -485,7 +595,7 @@ formatos de archivo; solo `patron.py` toca pyembroidery.
 ```
 gui/app.py          ventana tkinter: solo widgets y presentación
 gui/controlador.py  hilo trabajador + cola de eventos (testeable sin pantalla)
-cli.py              subcomandos: convertir · digitalizar · formatos
+cli.py              subcomandos: convertir · digitalizar · analizar · simular · formatos
 convertir.py        motor de conversión por lotes (puro, sin I/O de consola)
 
 imagen/segmentar.py   imagen -> regiones planas de color (k-means en Lab)
@@ -507,10 +617,11 @@ geometria.py        matemática pura en mm, sin dependencias externas
 parametros.py       value objects inmutables (densidad, aro, compensación)
      |
 patron.py           BUILDER: corridas -> EmbPattern
-     |                 orden de colores · JUMP vs TRIM · remates
+     |                 orden de colores · enlace / JUMP / TRIM · remates
      |                 filtro de puntadas cortas (restricción física)
      |
 validador.py        QA sobre el patrón ya codificado -> Reporte.ok
+simular.py          EmbPattern -> guión de trazos -> HTML autónomo
 exportar.py         PES/JEF/DST/EXP/VP3 + preview PNG + ficha + ZIP
 ```
 
@@ -518,7 +629,13 @@ exportar.py         PES/JEF/DST/EXP/VP3 + preview PNG + ficha + ZIP
 La conversión a unidades de máquina (1/10 mm) ocurre solo en `patron.py`.
 
 **Eje Y:** los formatos de bordado usan Y hacia arriba; las imágenes, hacia
-abajo. `exportar.py` invierte el eje solo para el PNG de preview.
+abajo. `exportar.py` invierte el eje solo para el PNG de preview, y
+`simular.py` solo para el lienzo del navegador.
+
+**Transición entre corridas** (`patron.py`), decidida por la distancia: hasta
+`enlace_max_mm` se llega **cosiendo**, hasta `salto_max_sin_corte_mm` se salta
+con la aguja arriba, y más allá se remata y se **corta**. Cortar para recorrer
+2 mm era el origen de las paradas que se veían en la máquina.
 
 **Hilos:** tkinter no es thread-safe. El lote corre en un hilo trabajador que
 publica eventos en una cola; el hilo de la interfaz la vacía cada 80 ms. Por
@@ -551,10 +668,13 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
    no se puede reescalar bien desde el binario, solo desde las regiones
 5. **Importador de SVG**, para saltarse la etapa de segmentación cuando el
    arte ya viene vectorial
+6. **Simulador de bordado** — hecho: reproducción puntada a puntada en HTML
+   autónomo, con detección de saltos, cortes y puntadas fuera de rango
+7. **Lettering** — pendiente a propósito: muchas máquinas ya traen fuentes
 
 ## Estado actual
 
-Implementado y testeado (170 tests, en Windows / macOS / Linux):
+Implementado y testeado (212 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
@@ -563,6 +683,9 @@ Implementado y testeado (170 tests, en Windows / macOS / Linux):
 - Importador de SVG con curvas, arcos, transformaciones y modelo del pintor
 - Redimensionado con corrección de largos y límite seguro
 - Análisis de eficiencia con tiempo realista y perfiles de calidad
+- Recorrido de aguja optimizado: la mitad de cortes de hilo
+- Enlace cosido entre corridas cercanas en vez de cortar y saltar
+- Simulador HTML autónomo: reproducción puntada a puntada y revisión de fallas
 - Aplicación de escritorio de dos pestañas y empaquetado a ejecutable
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
@@ -579,13 +702,15 @@ Limitaciones conocidas (documentadas en el código):
   que se cruzan a medias se cosen enteras, con solape en la intersección.
 - El redimensionado no recalcula la separación entre pasadas: para eso hay que
   re-digitalizar desde la imagen o el SVG.
-- El orden de bordado se optimiza dentro de cada color, no entre colores: con
-  un recorrido global habría menos cortes de hilo.
+- El orden usa vecino más cercano, no la ruta óptima: el viajante exacto es
+  carísimo y la heurística ya baja el recorrido un 78% dentro de cada región.
 - El satin automático trata cada región por separado: no encadena varias
   ramas de una misma letra en una sola columna continua.
 - El appliqué usa el contorno completo de la región. Un diseño real suele
   aplicar la silueta entera y bordar los detalles encima.
 - `.exp` no almacena colores: necesita un `.inf`/`.edr` acompañante.
+- El simulador dibuja el recorrido de la aguja, no el volumen del hilo: sirve
+  para detectar fallas de secuencia, no para juzgar la cobertura final.
 
 ## Ecosistema open source de bordado
 

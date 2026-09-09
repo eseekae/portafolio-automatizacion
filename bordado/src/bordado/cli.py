@@ -8,12 +8,14 @@ toda la logica vive en los modulos del paquete.
     matriz convertir ENTRADA... --a jef [-o SALIDA] [opciones]
     matriz digitalizar IMAGEN --ancho 90 [--colores 5] [opciones]
     matriz analizar ARCHIVO
+    matriz simular ARCHIVO [-o vista.html]
 
 Ejemplos:
     matriz convertir disenos/ --a jef -o convertidos/
     matriz convertir *.pes --a jef
     matriz digitalizar logo.png --ancho 80 --colores 4 -o salida/
     matriz analizar dragon.pes          # donde se va el tiempo y como bajarlo
+    matriz simular dragon.pes           # verlo coserse en el navegador
 """
 
 from __future__ import annotations
@@ -221,6 +223,41 @@ def _cmd_analizar(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_simular(args: argparse.Namespace) -> int:
+    import pyembroidery as pe
+
+    from .simular import simular
+
+    rutas = recolectar(args.entradas, recursivo=args.recursivo)
+    if not rutas:
+        print("error: no se encontro ningun archivo de bordado legible.",
+              file=sys.stderr)
+        return 2
+
+    destino_dir = Path(args.salida) if args.salida else None
+    generados = 0
+    for ruta in rutas:
+        try:
+            patron = pe.read(str(ruta))
+        except Exception:  # noqa: BLE001
+            print(f"{ruta.name}: ilegible o corrupto", file=sys.stderr)
+            continue
+        if patron is None or not patron.stitches:
+            print(f"{ruta.name}: sin puntadas", file=sys.stderr)
+            continue
+        destino = (destino_dir or ruta.parent) / f"{ruta.stem}_simulacion.html"
+        archivo, g = simular(patron, destino, titulo=ruta.stem,
+                             salto_largo_mm=args.salto_largo)
+        puntadas = sum(1 for t in g.trazos if t.tipo == "puntada")
+        print(f"{ruta.name:<28} {puntadas:>7,} puntadas -> {archivo}")
+        generados += 1
+
+    if generados:
+        print("\nAbrelo con doble clic. Funciona sin internet y se puede "
+              "mandar a un cliente para que apruebe antes de bordar.")
+    return 0 if generados else 1
+
+
 def _cmd_formatos(_: argparse.Namespace) -> int:
     print("Formatos de SALIDA (a los que puedes convertir):")
     print("  de maquina : " + ", ".join(sorted(FORMATOS_MAQUINA & FORMATOS_ESCRITURA)))
@@ -323,6 +360,18 @@ def construir_parser() -> argparse.ArgumentParser:
     an.add_argument("--segundos-color", type=float, default=25.0, metavar="S",
                     help="cuanto tardas en reenhebrar un color")
     an.set_defaults(func=_cmd_analizar)
+
+    si = sub.add_parser("simular",
+                        help="genera una vista que reproduce el bordado "
+                             "puntada a puntada")
+    si.add_argument("entradas", nargs="+", help="archivos o carpetas")
+    si.add_argument("-r", "--recursivo", action="store_true",
+                    help="incluye subcarpetas")
+    si.add_argument("-o", "--salida", metavar="DIR",
+                    help="carpeta de destino (por defecto: junto al archivo)")
+    si.add_argument("--salto-largo", type=float, default=12.0, metavar="MM",
+                    help="a partir de que largo se marca un salto como problema")
+    si.set_defaults(func=_cmd_simular)
 
     f = sub.add_parser("formatos", help="lista los formatos soportados")
     f.set_defaults(func=_cmd_formatos)
