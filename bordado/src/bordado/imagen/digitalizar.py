@@ -35,9 +35,10 @@ from ..parametros import (
 from ..patron import ConstructorPatron
 from ..puntadas import (
     columna_satin, eje_de_franja, ordenar_corridas, puntada_recta,
-    puntada_triple, relleno_tatami, satin_de_region,
+    puntada_triple, relleno_tatami, satin_de_region, satin_por_eje,
 )
 from . import segmentar as seg
+from .esqueleto import suavizar, trazos_de_region
 from .hilos import Hilo, elegir
 from .vectorizar import separar_figuras, simplificar, trazar_anillos
 
@@ -65,6 +66,10 @@ LARGO_CORRIDA_MIN_MM = 2.5
 # Cuando una figura fina es lo bastante alargada como para tener un eje que la
 # represente. Por debajo se cose recorriendo el borde.
 ELONGACION_EJE_MIN = 3.0
+
+# Hasta este tamano una figura se trata como letra: se descompone en trazos y
+# cada uno se cose como columna satin. Por encima, la trama ya tiene sitio.
+LETRA_MAX_MM = 12.0
 
 # Altura minima a la que un texto se lee bordado. Por debajo, el hilo (0.4 mm
 # de ancho) es demasiado grueso respecto de la letra: no es un limite del
@@ -179,17 +184,40 @@ def elegir_tecnica(r: Region, densidad_mm: float = 0.40,
             and GROSOR_MINIMO_MM <= r.grosor_mm <= SATIN_ANCHO_MAX_MM):
         return "satin"
     if r.grosor_mm < GROSOR_MINIMO_MM:
-        # Demasiado fina para rellenar: se cose como linea o no se cose.
-        return "corrida" if es_corrida(r) else "descartar"
+        # Demasiado fina para rellenar. Si es un trazo de verdad y no ruido,
+        # se descompone en sus trazos y cada uno se cose como columna satin.
+        return "letra" if es_corrida(r) else "descartar"
+    if es_letra(r):
+        return "letra"
     return "relleno"
+
+
+def es_letra(r: Region) -> bool:
+    """
+    Si la figura es tan chica que rellenarla con trama seria un garabato.
+
+    Una trama necesita varias pasadas para leerse como superficie. En un
+    digito de 4 mm con trazos de 1 mm no caben: las filas del tatami quedan
+    mas separadas que el propio trazo y el numero se pierde. Ahi la unica
+    forma es coser cada trazo como columna satin.
+    """
+    if r.trazo or not es_corrida(r):
+        return False
+    alto = max((q[1] for q in r.exterior), default=0.0) - \
+        min((q[1] for q in r.exterior), default=0.0)
+    ancho = max((q[0] for q in r.exterior), default=0.0) - \
+        min((q[0] for q in r.exterior), default=0.0)
+    return (max(alto, ancho) <= LETRA_MAX_MM
+            and r.grosor_mm <= SATIN_ANCHO_MAX_MM / 2.0)
 
 
 def es_corrida(r: Region) -> bool:
     """
-    Si una region demasiado fina para rellenar se puede coser como linea.
+    Si la region es un trazo del dibujo y no ruido.
 
-    Pide dos cosas: que sea un trazo del dibujo y no ruido de antialiasing, y
-    que tenga largo suficiente para leerse como una linea y no como una mota.
+    Pide dos cosas: que no sea el borde difuso que deja el antialiasing al
+    reducir la imagen, y que tenga largo suficiente para leerse como algo y
+    no como una mota.
     """
     return (r.grosor_mm >= GROSOR_CORRIDA_MIN_MM
             and r.perimetro_mm / 2.0 >= LARGO_CORRIDA_MIN_MM)
@@ -691,6 +719,26 @@ def tejer(d: "Digitalizacion", g: ParamGlobales | None = None,
                 ParamSatin(densidad_mm=max(0.30, densidad_mm - 0.05)))
             if not corridas:
                 tecnica = "corrida"
+
+        if tecnica == "letra":
+            # El unico modo de bordar un trazo mas fino que la puntada minima.
+            # En una columna satin dos perforaciones seguidas caen en lados
+            # OPUESTOS del trazo: la puntada mide el ancho (legal) mientras
+            # que el avance a lo largo del trazo es de 0.35 mm. Asi se resuelve
+            # detalle mas fino que la propia puntada.
+            #
+            # Recorrer el contorno no sirve: ahi la puntada y el avance son lo
+            # mismo, y un digito de 2 mm queda reducido a doce puntos.
+            # Rellenar con trama tampoco: los giros de fin de fila caen a
+            # 0.35 mm y el filtro de puntadas cortas los borra. Se probaron
+            # las dos.
+            ps = ParamSatin(densidad_mm=0.35, compensacion_mm=0.05,
+                            underlay="none")
+            for eje, semi in trazos_de_region(r.exterior, r.huecos):
+                corridas += satin_por_eje(suavizar(eje), semi, ps,
+                                          ancho_minimo_mm=g.puntada_min_mm)
+            if not corridas:
+                tecnica = "corrida"      # no se pudo descomponer
 
         if tecnica == "corrida":
             # Triple (bean stitch) y no corrida simple: una sola pasada de hilo

@@ -231,9 +231,12 @@ def franja(largo_mm: float, grosor_mm: float) -> Region:
     return _describir(0, [(0, -h), (largo_mm, -h), (largo_mm, h), (0, h)], [])
 
 
-def test_un_trazo_fino_se_cose_como_corrida():
-    """Medio milimetro no se rellena ni se hace satin, pero SI se borda."""
-    assert elegir_tecnica(franja(20.0, 0.5)) == "corrida"
+def test_un_trazo_fino_se_cose_como_letra():
+    """
+    Medio milimetro no se rellena ni admite satin normal, pero SI se borda:
+    se descompone en trazos y cada uno se cose como columna satin.
+    """
+    assert elegir_tecnica(franja(20.0, 0.5)) == "letra"
 
 
 def test_una_franja_normal_sigue_yendo_a_satin():
@@ -268,7 +271,7 @@ def test_el_trazo_fino_llega_hasta_la_matriz(insignia):
     """
     patron, d, _ = digitalizar(insignia, ancho_mm=60, n_colores=3, px_por_mm=8.0)
     assert d.descartadas == 0, "se siguio descartando detalle"
-    assert any(elegir_tecnica(r) == "corrida" for r in d.regiones)
+    assert any(elegir_tecnica(r) == "letra" for r in d.regiones)
 
     # El trazo esta en el tercio inferior de la imagen; en el archivo, con Y
     # hacia abajo, eso es el tercio de Y mas alta.

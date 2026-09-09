@@ -173,19 +173,49 @@ que se rellenan de verdad). Desde la terminal:
 matriz digitalizar logo.png --ancho 90 --sin-detalle-fino
 ```
 
-## Hasta dónde llega el detalle chico
+## Cómo se bordan las letras y los números chicos
 
-El programa te avisa cuándo una pieza mide menos de **4 mm de alto**. No es
-un límite del software: **el hilo mide 0,4 mm de ancho**. Un número de 2,5 mm
-tiene sitio para seis hilos de alto contando los huecos — no hay máquina ni
-programa que lo haga legible.
+Un número de 4 mm tiene trazos de medio milímetro. La puntada más corta que
+admite una máquina es de 0,7 mm. Parece imposible — y con las dos técnicas
+obvias lo es:
 
-Si tu logo trae texto chico tienes tres salidas, en este orden:
+- **Recorrer el contorno** del número: la puntada y el avance son la misma
+  cosa, así que hay que muestrear el contorno cada 0,7 mm y un dígito de 2 mm
+  de ancho queda reducido a doce puntos. Sale un garabato.
+- **Rellenarlo con trama**: los giros de fin de fila caen a 0,35 mm y el
+  filtro de puntadas cortas los borra.
 
-1. **Agrandar el diseño.** Es la única que resuelve de verdad. La misma
-   insignia a 160 mm en vez de 80 borda el año con relleno macizo y se lee.
-2. **Desmarcar esas piezas** y bordar el resto limpio.
-3. Bordar el texto aparte, más grande, como una segunda pieza.
+**Las dos se probaron y las dos fallan.** Lo que funciona es lo que usa la
+industria: la **columna satén**.
+
+En una columna satén dos perforaciones seguidas caen en lados **opuestos** del
+trazo. La puntada mide el *ancho* del trazo —0,7 mm, legal— mientras que el
+avance a lo largo del trazo es de solo 0,35 mm. Es decir, la columna satén
+**desacopla el largo de la puntada de la resolución del dibujo**, y por eso se
+puede bordar detalle más fino que la propia puntada mínima.
+
+Para armar la columna hacen falta los dos bordes del trazo, y para eso hay que
+saber por dónde pasa: su **eje medial**. `imagen/esqueleto.py` lo calcula
+—rasteriza, adelgaza con Zhang-Suen, mide la distancia al borde y corta el
+esqueleto en ramas— y cada rama se cose como su propia columna.
+
+Medido sobre `1813` en DejaVu Sans Bold:
+
+| Altura del dígito | Resultado |
+|---|---|
+| 4,8 mm | se lee limpio |
+| 3,4 mm | se lee, con los trazos ya juntos |
+| 2,7 mm y menos | los trazos se tocan y el número se pierde |
+
+Ese límite de ~4 mm es el mismo que manejan los digitalizadores
+profesionales, y es del **hilo**: 0,4 mm de ancho no caben tres veces dentro
+de una letra de 2,5 mm. El programa te avisa cuándo una pieza baja de ahí.
+
+Si tu logo trae texto por debajo del límite:
+
+1. **Agranda el diseño.** Es lo que de verdad lo resuelve.
+2. **Desmarca esas piezas** y borda el resto limpio.
+3. Borda el texto aparte, más grande, como una segunda pieza.
 
 # Appliqué: bordar sobre tela en vez de rellenar
 
@@ -672,6 +702,7 @@ imagen/svg.py         SVG -> regiones, sin pasar por píxeles
 redimensionar.py      escalado con corrección de largos y límite seguro
 analizar.py           mide una matriz: hilo, densidad, tiempo real, palancas
 imagen/hilos.py       color -> hilo real del catálogo de la máquina
+imagen/esqueleto.py   figura -> sus trazos (eje medial + ancho): letras chicas
 imagen/digitalizar.py orquesta las etapas y decide cómo coser cada región
 
 disenos/*.py        definición del diseño (geometría + colores + orden)
@@ -751,7 +782,7 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (243 tests, en Windows / macOS / Linux):
+Implementado y testeado (262 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
@@ -764,8 +795,8 @@ Implementado y testeado (243 tests, en Windows / macOS / Linux):
 - Enlace cosido entre corridas cercanas en vez de cortar y saltar
 - Simulador HTML autónomo: reproducción puntada a puntada, encuadre a
   pantalla, zoom y revisión de fallas
-- Detalle fino (contornos, números, trazos de medio milímetro) cosido con
-  corrida triple en vez de descartado
+- Letras y números chicos cosidos como columna satén sobre el eje medial
+  de cada trazo, que es lo que permite bajar de la puntada mínima
 - Selector de piezas: el usuario elige qué partes del dibujo se bordan
 - Contornos (`stroke`) del SVG, con satén o corrida según su grosor
 - Resolución de trabajo adaptativa al tamaño del diseño
@@ -795,10 +826,13 @@ Limitaciones conocidas (documentadas en el código):
   un número— no tiene un eje que la represente y se cose recorriendo su borde;
   forzarle un eje la convierte en un palito. Se midió sobre una insignia real:
   los contornos finos dan elongación 3,6–3,8 y los dígitos 1,4–1,9.
-- Un texto de menos de ~4 mm de alto sale como el contorno de cada letra, no
-  como letras macizas, y el programa lo avisa. **No es un límite del software
-  sino del hilo**: 0,4 mm de ancho no caben dentro de una letra de 2,5 mm.
-  Para lettering de verdad hacen falta fuentes vectoriales propias.
+- Por debajo de ~4 mm de alto los trazos de una letra se tocan entre sí y el
+  carácter se pierde. **No es un límite del software sino del hilo.** Para
+  lettering por debajo de eso hacen falta fuentes vectoriales pre-digitalizadas
+  a mano, que es como lo resuelven los programas comerciales.
+- El eje medial sale de un esqueleto por adelgazado, así que en una unión de
+  trazos (el centro de una "X") la columna satén se interrumpe y se retoma.
+  A tamaño de logo no se nota; en una letra muy grande, sí.
 - El offset que convierte un `stroke` en columna satén es por normales
   promediadas, igual que `desplazar_contorno`: con los grosores de un contorno
   (medio milímetro a cada lado) no alcanza a auto-intersectarse, pero un trazo

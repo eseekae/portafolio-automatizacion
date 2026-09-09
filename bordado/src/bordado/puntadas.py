@@ -262,6 +262,93 @@ def _repartir(linea: Polilinea, n: int) -> Polilinea:
     return salida
 
 
+def satin_por_eje(eje: Polilinea, semianchos: list[float], p: ParamSatin,
+                  ancho_minimo_mm: float = 0.7) -> list[Polilinea]:
+    """
+    Columna satin a lo largo de un eje, con el ancho que tenga en cada punto.
+
+    Es la pieza que permite bordar letras y numeros chicos. El eje y los
+    semianchos salen de `imagen/esqueleto.py`, que descompone la figura en
+    trazos; aqui cada trazo se convierte en su columna.
+
+    POR QUE NO SE USA `columna_satin`
+        Esa funcion recibe dos rieles independientes y los remuestrea por
+        separado, cada uno por su propio largo. Es lo correcto cuando los
+        rieles vienen de un contorno y no estan emparejados. Aqui SI lo estan
+        -cada par sale del mismo punto del eje-, y remuestrearlos por
+        separado los desincroniza: en una curva el riel interior es mas corto
+        que el exterior, asi que el punto i de uno deja de corresponder al
+        punto i del otro y el satin sale cruzado. Se probo, y por eso los
+        numeros salian como garabatos.
+
+        Aqui se remuestrea el EJE, una sola vez, y los dos rieles se derivan
+        de el. El emparejamiento no se puede romper.
+
+    `ancho_minimo_mm` ensancha la columna donde el trazo es mas fino que la
+    puntada mas corta de la maquina. NO es hacer trampa: es la misma pull
+    compensation que aplica cualquier digitalizador, por la misma razon
+    fisica -el hilo tiene grosor propio y cubre algo mas que la linea
+    dibujada-. Sin esto, en un trazo de 0.5 mm todas las puntadas caerian
+    bajo el minimo, el filtro las borraria y la letra no se coseria.
+    """
+    if len(eje) < 2 or len(semianchos) != len(eje):
+        return []
+
+    eje, semianchos = _remuestrear_con_ancho(eje, semianchos, p.densidad_mm)
+    n = len(eje)
+    if n < 2:
+        return []
+
+    zig: Polilinea = []
+    for i in range(n):
+        if i == 0:
+            dx, dy = eje[1][0] - eje[0][0], eje[1][1] - eje[0][1]
+        elif i == n - 1:
+            dx, dy = eje[-1][0] - eje[-2][0], eje[-1][1] - eje[-2][1]
+        else:
+            dx, dy = eje[i + 1][0] - eje[i - 1][0], eje[i + 1][1] - eje[i - 1][1]
+        L = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / L, dx / L                  # normal al avance
+        w = max(semianchos[i], ancho_minimo_mm / 2.0) + p.compensacion_mm
+        a = (eje[i][0] + nx * w, eje[i][1] + ny * w)
+        b = (eje[i][0] - nx * w, eje[i][1] - ny * w)
+        # SIEMPRE en el mismo orden a,b. Alternarlo (a,b / b,a) parece mas
+        # elegante y es un error: deja dos penetraciones seguidas en el mismo
+        # riel, separadas solo por el avance (0.35 mm), o sea por debajo de la
+        # puntada minima. Ya se cometio una vez en este proyecto.
+        #
+        # Asi, la puntada a->b cruza la columna y la b->a siguiente vuelve a
+        # cruzarla en diagonal: las dos miden al menos el ancho del trazo.
+        zig += [a, b]
+    return [zig] if len(zig) >= 2 else []
+
+
+def _remuestrear_con_ancho(eje: Polilinea, semianchos: list[float], paso: float
+                           ) -> tuple[Polilinea, list[float]]:
+    """Reparte el eje cada `paso` mm, interpolando tambien el ancho."""
+    largos = [0.0]
+    for i in range(1, len(eje)):
+        largos.append(largos[-1] + math.dist(eje[i - 1], eje[i]))
+    total = largos[-1]
+    if total <= 0 or paso <= 0:
+        return list(eje), list(semianchos)
+
+    n = max(2, int(round(total / paso)) + 1)
+    salida: Polilinea = []
+    anchos: list[float] = []
+    j = 0
+    for k in range(n):
+        objetivo = total * k / (n - 1)
+        while j < len(largos) - 2 and largos[j + 1] < objetivo:
+            j += 1
+        tramo = largos[j + 1] - largos[j]
+        t = 0.0 if tramo <= 0 else (objetivo - largos[j]) / tramo
+        (x1, y1), (x2, y2) = eje[j], eje[j + 1]
+        salida.append((x1 + (x2 - x1) * t, y1 + (y2 - y1) * t))
+        anchos.append(semianchos[j] + (semianchos[j + 1] - semianchos[j]) * t)
+    return salida, anchos
+
+
 # Por debajo de este ancho la columna no admite una puntada util: ahi termina
 # el satin y empieza la punta de la figura.
 SATIN_ANCHO_MINIMO_MM = 0.8
