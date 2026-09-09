@@ -31,15 +31,33 @@ from ..parametros import (
 )
 from ..patron import ConstructorPatron
 from ..puntadas import (
-    ordenar_corridas, puntada_recta, relleno_tatami, satin_de_region,
+    ordenar_corridas, puntada_recta, puntada_triple, relleno_tatami,
+    satin_de_region,
 )
 from . import segmentar as seg
 from .hilos import Hilo, elegir
 from .vectorizar import separar_figuras, simplificar, trazar_anillos
 
-# Por debajo de este grosor no hay puntada que quepa: la region se descarta
-# en vez de generar basura que rompe agujas.
+# Por debajo de este grosor no cabe ni un relleno ni una columna satin: la
+# aguja no tiene donde entrar y salir sin repicar el mismo agujero.
+#
+# Pero "no se puede RELLENAR" no es lo mismo que "no se puede BORDAR". Un
+# trazo de medio milimetro -el numero de un ano, el contorno fino de un
+# escudo, la contra de una letra- se borda como los borda cualquier
+# digitalizador profesional: con una CORRIDA de puntadas siguiendo la forma.
+# El hilo mide unos 0.4 mm de ancho, asi que una linea de hilo ES el trazo.
+#
+# Antes estas regiones se descartaban y el detalle chico simplemente
+# desaparecia del bordado.
 GROSOR_MINIMO_MM = 0.9
+
+# Por debajo de esto ya no es un trazo del dibujo: es el borde difuso que deja
+# el antialiasing al reducir la imagen. Coserlo seria bordar ruido.
+GROSOR_CORRIDA_MIN_MM = 0.25
+
+# Y tiene que tener LARGO suficiente para que se vea como una linea. El largo
+# de una franja delgada es aproximadamente la mitad de su perimetro.
+LARGO_CORRIDA_MIN_MM = 2.5
 
 def ordenar_corridas_enlazadas(corridas: list[Polilinea], desde: Punto
                                ) -> tuple[list[Polilinea], Punto]:
@@ -138,7 +156,21 @@ def elegir_tecnica(r: Region, densidad_mm: float = 0.40,
     if (r.elongacion > SATIN_ELONGACION_MIN
             and GROSOR_MINIMO_MM <= r.grosor_mm <= SATIN_ANCHO_MAX_MM):
         return "satin"
+    if r.grosor_mm < GROSOR_MINIMO_MM:
+        # Demasiado fina para rellenar: se cose como linea o no se cose.
+        return "corrida" if es_corrida(r) else "descartar"
     return "relleno"
+
+
+def es_corrida(r: Region) -> bool:
+    """
+    Si una region demasiado fina para rellenar se puede coser como linea.
+
+    Pide dos cosas: que sea un trazo del dibujo y no ruido de antialiasing, y
+    que tenga largo suficiente para leerse como una linea y no como una mota.
+    """
+    return (r.grosor_mm >= GROSOR_CORRIDA_MIN_MM
+            and r.perimetro_mm / 2.0 >= LARGO_CORRIDA_MIN_MM)
 
 
 @dataclass
@@ -224,7 +256,14 @@ def extraer_regiones(s: seg.Segmentacion, area_min_mm2: float = 1.0,
             if len(exterior) < 3:
                 continue
             r = _describir(color, exterior, huecos)
-            if r.grosor_mm < GROSOR_MINIMO_MM or r.area_mm2 < area_min_mm2:
+            # Una region fina ya no se tira: si da para coserse como linea,
+            # sigue viva y `elegir_tecnica` la mandara a "corrida". Solo se
+            # descarta lo que no se puede bordar de ninguna forma.
+            if r.grosor_mm < GROSOR_MINIMO_MM and not es_corrida(r):
+                descartadas += 1
+                area_descartada += r.area_mm2
+                continue
+            if r.area_mm2 < area_min_mm2 and r.grosor_mm >= GROSOR_MINIMO_MM:
                 descartadas += 1
                 area_descartada += r.area_mm2
                 continue
@@ -343,10 +382,12 @@ def ordenar(regiones: list[Region]) -> list[Region]:
 # Orquestacion
 # --------------------------------------------------------------------------
 
-def regiones_desde_svg(ruta: Path, ancho_mm: float, area_min_mm2: float = 1.0):
+def regiones_desde_svg(ruta: Path, ancho_mm: float, area_min_mm2: float = 1.0
+                       ) -> tuple[list[Region], "np.ndarray", None, int, float]:
     """
-    Lee un SVG y devuelve (regiones, colores, None) listo para el resto del
-    pipeline. Sin segmentar, sin rasterizar: los contornos vienen del archivo.
+    Lee un SVG y devuelve (regiones, colores, None, descartadas, area) listo
+    para el resto del pipeline. Sin segmentar, sin rasterizar: los contornos
+    vienen del archivo.
     """
     import numpy as np
 
@@ -363,14 +404,28 @@ def regiones_desde_svg(ruta: Path, ancho_mm: float, area_min_mm2: float = 1.0):
     colores: list[tuple[int, int, int]] = []
     indice: dict[tuple[int, int, int], int] = {}
     regiones: list[Region] = []
+    descartadas, area_descartada = 0, 0.0
     for color, exterior, huecos in figuras:
         if color not in indice:
             indice[color] = len(colores)
             colores.append(color)
         r = _describir(indice[color], exterior, huecos)
-        if r.grosor_mm >= GROSOR_MINIMO_MM and r.area_mm2 >= area_min_mm2:
+        # Mismo criterio que en la via de imagen: lo fino se cose como linea,
+        # no se tira. Un SVG de un logo trae justamente los detalles chicos
+        # (numeros, contornos, la contra de una letra) en formas delgadas.
+        if r.grosor_mm < GROSOR_MINIMO_MM:
+            if es_corrida(r):
+                regiones.append(r)
+            else:
+                descartadas += 1
+                area_descartada += r.area_mm2
+        elif r.area_mm2 < area_min_mm2:
+            descartadas += 1
+            area_descartada += r.area_mm2
+        else:
             regiones.append(r)
-    return regiones, np.array(colores, dtype=np.uint8), None
+    return (regiones, np.array(colores, dtype=np.uint8), None,
+            descartadas, area_descartada)
 
 
 def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
@@ -397,8 +452,8 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
     ruta = Path(ruta)
 
     if ruta.suffix.lower() == ".svg":
-        regiones, colores, s = regiones_desde_svg(ruta, ancho_mm, area_min_mm2)
-        descartadas = area_desc = 0
+        regiones, colores, s, descartadas, area_desc = regiones_desde_svg(
+            ruta, ancho_mm, area_min_mm2)
         n_pedidos = len(colores)
     else:
         rgb, fondo = seg.cargar(ruta, ancho_mm, px_por_mm, suavizado)
@@ -467,6 +522,25 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
                 notas.append(instrucciones(pasos))
             tecnicas["aplique"] = tecnicas.get("aplique", 0) + 1
             continue
+
+        if tecnica == "descartar":
+            # Llego hasta aqui por el camino del SVG, que no filtra antes.
+            d.descartadas += 1
+            d.area_descartada_mm2 += r.area_mm2
+            continue
+
+        if tecnica == "corrida":
+            # Se sigue el CONTORNO de la region, no un eje medial calculado.
+            # En una franja de medio milimetro los dos bordes distan menos que
+            # el ancho del propio hilo, asi que recorrerlos deja exactamente la
+            # linea que se busca, sin la fragilidad de estimar un eje.
+            #
+            # Triple (bean stitch) y no corrida simple: una sola pasada de hilo
+            # sobre un trazo fino se ve desvaida, y es lo que se usa en la
+            # industria para numeros y contornos chicos.
+            pr = ParamRecta(largo_mm=min(2.0, max(1.0, r.grosor_mm * 3)))
+            for anillo in [r.exterior, *r.huecos]:
+                corridas += puntada_triple(anillo, pr, cerrada=True)
 
         if tecnica == "satin":
             corridas = satin_de_region(

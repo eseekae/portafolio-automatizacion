@@ -2,6 +2,8 @@
 Tests de la auto-digitalizacion: segmentacion, hilos y pipeline completo.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pyembroidery as pe
 import pytest
@@ -9,7 +11,8 @@ from PIL import Image, ImageDraw
 
 from bordado.imagen import segmentar as seg
 from bordado.imagen.digitalizar import (
-    decidir, digitalizar, extraer_regiones, ordenar,
+    Region, _describir, decidir, digitalizar, elegir_tecnica,
+    extraer_regiones, ordenar,
 )
 from bordado.imagen.hilos import catalogo, elegir
 from bordado.parametros import AROS, ParamGlobales
@@ -199,3 +202,97 @@ def test_una_imagen_vacia_da_un_error_claro(tmp_path):
     Image.new("RGBA", (40, 40), (0, 0, 0, 0)).save(f)
     with pytest.raises(ValueError, match="bordar"):
         digitalizar(f, ancho_mm=40, n_colores=3, px_por_mm=4.0)
+
+
+# --------------------------------------------------- detalle fino (corridas)
+#
+# Vienen de un caso real: la insignia de un colegio, 80 mm de ancho. El escudo
+# salia bien pero el ano "1813" y el contorno fino desaparecian del bordado.
+# El programa los estaba DESCARTANDO por finos, en vez de coserlos como lo
+# hace cualquier digitalizador: con una corrida de puntadas sobre el trazo.
+
+@pytest.fixture
+def insignia(tmp_path: Path) -> Path:
+    """Mancha gorda + un trazo fino de medio milimetro al lado."""
+    img = Image.new("RGB", (400, 400), "white")
+    d = ImageDraw.Draw(img)
+    d.rectangle([(40, 40), (360, 240)], fill=(26, 47, 92))   # mancha rellenable
+    # A 60 mm de ancho y 8 px/mm, estos 3 px son ~0.45 mm: demasiado fino para
+    # rellenar, perfectamente bordable como linea.
+    d.rectangle([(60, 300), (340, 302)], fill=(26, 47, 92))  # trazo fino
+    f = tmp_path / "insignia.png"
+    img.save(f)
+    return f
+
+
+def franja(largo_mm: float, grosor_mm: float) -> Region:
+    """Una franja recta de las medidas pedidas, como region."""
+    h = grosor_mm / 2.0
+    return _describir(0, [(0, -h), (largo_mm, -h), (largo_mm, h), (0, h)], [])
+
+
+def test_un_trazo_fino_se_cose_como_corrida():
+    """Medio milimetro no se rellena ni se hace satin, pero SI se borda."""
+    assert elegir_tecnica(franja(20.0, 0.5)) == "corrida"
+
+
+def test_una_franja_normal_sigue_yendo_a_satin():
+    """La corrida es para lo que no cabe, no un atajo que degrade lo demas."""
+    assert elegir_tecnica(franja(20.0, 2.5)) == "satin"
+
+
+def test_una_mancha_se_sigue_rellenando():
+    assert elegir_tecnica(_describir(0, [(0, 0), (20, 0), (20, 20), (0, 20)], [])) \
+        == "relleno"
+
+
+def test_el_ruido_de_antialiasing_no_se_cose():
+    """
+    Un borde difuso de 0.1 mm no es un trazo del dibujo: es el halo que deja
+    reducir la imagen. Coserlo seria bordar basura.
+    """
+    assert elegir_tecnica(franja(20.0, 0.1)) == "descartar"
+
+
+def test_una_mota_fina_y_corta_tampoco_se_cose():
+    """Fina Y corta: no se leeria como linea ni aunque se cosiera."""
+    assert elegir_tecnica(franja(1.0, 0.5)) == "descartar"
+
+
+def test_el_trazo_fino_llega_hasta_la_matriz(insignia):
+    """
+    La prueba que importa: el detalle chico tiene que estar en el archivo.
+
+    Se mide donde cae el trazo fino dentro del diseno y se comprueba que hay
+    puntadas ahi. Antes no habia ninguna: la region se descartaba entera.
+    """
+    patron, d, _ = digitalizar(insignia, ancho_mm=60, n_colores=3, px_por_mm=8.0)
+    assert d.descartadas == 0, "se siguio descartando detalle"
+    assert any(elegir_tecnica(r) == "corrida" for r in d.regiones)
+
+    # El trazo esta en el tercio inferior de la imagen; en el archivo, con Y
+    # hacia abajo, eso es el tercio de Y mas alta.
+    ys = [y for _, y, _ in patron.get_normalized_pattern().stitches]
+    corte = min(ys) + 0.72 * (max(ys) - min(ys))
+    assert sum(1 for y in ys if y > corte) > 20, (
+        "no hay puntadas donde va el trazo fino")
+
+
+def test_coser_el_detalle_fino_cuesta_poco(insignia):
+    """
+    Recuperar el detalle no puede salir caro: son lineas, no rellenos.
+
+    Se compara contra el mismo diseno sin el trazo fino.
+    """
+    solo_mancha = insignia.with_name("solo_mancha.png")
+    img = Image.new("RGB", (400, 400), "white")
+    ImageDraw.Draw(img).rectangle([(40, 40), (360, 240)], fill=(26, 47, 92))
+    img.save(solo_mancha)
+
+    con, _, _ = digitalizar(insignia, ancho_mm=60, n_colores=3, px_por_mm=8.0)
+    sin, _, _ = digitalizar(solo_mancha, ancho_mm=60, n_colores=3, px_por_mm=8.0)
+    n_con = con.count_stitch_commands(pe.STITCH)
+    n_sin = sin.count_stitch_commands(pe.STITCH)
+    assert n_con > n_sin, "el trazo fino no agrego ni una puntada"
+    assert n_con < n_sin * 1.5, (
+        f"el detalle fino disparo las puntadas: {n_sin} -> {n_con}")
