@@ -208,6 +208,60 @@ def rieles_desde_contorno(anillo: Polilinea) -> tuple[Polilinea, Polilinea] | No
     return lado_1, lado_2[::-1]
 
 
+def eje_de_franja(anillo: Polilinea, pasos: int = 0) -> Polilinea | None:
+    """
+    Linea central de una franja: el promedio de sus dos lados largos.
+
+    PARA QUE
+        Un trazo demasiado fino para rellenar hay que coserlo como LINEA. La
+        pregunta es que linea: si se recorre el CONTORNO, se cose el borde del
+        trazo y el trazo queda hueco por dentro. Peor todavia, ese contorno
+        se dobla sobre si mismo cada medio milimetro, y al muestrearlo a la
+        distancia de una puntada (~1 mm) el resultado no se parece en nada a
+        la forma: sale un garabato.
+
+        El eje central no tiene ese problema. Sus rasgos estan a la escala de
+        la figura -milimetros-, asi que una puntada normal lo sigue bien, y el
+        hilo queda donde de verdad va el trazo.
+
+    Devuelve None si la figura no se comporta como franja (se bifurca, tiene
+    huecos, es casi tan ancha como larga). Ahi no hay un eje que tenga
+    sentido y hay que resolverlo de otra forma.
+    """
+    rieles = rieles_desde_contorno(anillo)
+    if rieles is None:
+        return None
+    a, b = rieles
+    # Los dos lados traen distinta cantidad de puntos: se remuestrean a la
+    # misma cantidad para poder emparejarlos uno a uno.
+    n = pasos or max(4, min(200, (len(a) + len(b)) // 2))
+    ra, rb = _repartir(a, n), _repartir(b, n)
+    eje = [((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+           for (x1, y1), (x2, y2) in zip(ra, rb)]
+    return eje if longitud(eje) > 0 else None
+
+
+def _repartir(linea: Polilinea, n: int) -> Polilinea:
+    """`n` puntos repartidos a lo largo de la linea, extremos incluidos."""
+    largos = [0.0]
+    for i in range(1, len(linea)):
+        largos.append(largos[-1] + math.dist(linea[i - 1], linea[i]))
+    total = largos[-1]
+    if total <= 0:
+        return [linea[0]] * n
+    salida: Polilinea = []
+    j = 0
+    for k in range(n):
+        objetivo = total * k / (n - 1) if n > 1 else 0.0
+        while j < len(largos) - 2 and largos[j + 1] < objetivo:
+            j += 1
+        tramo = largos[j + 1] - largos[j]
+        t = 0.0 if tramo <= 0 else (objetivo - largos[j]) / tramo
+        (x1, y1), (x2, y2) = linea[j], linea[j + 1]
+        salida.append((x1 + (x2 - x1) * t, y1 + (y2 - y1) * t))
+    return salida
+
+
 # Por debajo de este ancho la columna no admite una puntada util: ahi termina
 # el satin y empieza la punta de la figura.
 SATIN_ANCHO_MINIMO_MM = 0.8

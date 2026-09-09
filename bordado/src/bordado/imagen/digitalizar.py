@@ -21,18 +21,21 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
+import pyembroidery as pe
 
 from ..aplique import ParamAplique, instrucciones
 from ..aplique import secuencia as secuencia_aplique
-from ..geometria import Polilinea, Punto, area_shoelace, longitud
+from ..geometria import (
+    Polilinea, Punto, area_shoelace, desplazar_trazo, longitud,
+)
 from ..parametros import (
     PERFIL_POR_DEFECTO, PERFILES, ParamGlobales, ParamRecta, ParamRelleno,
     ParamSatin, Perfil,
 )
 from ..patron import ConstructorPatron
 from ..puntadas import (
-    ordenar_corridas, puntada_recta, puntada_triple, relleno_tatami,
-    satin_de_region,
+    columna_satin, eje_de_franja, ordenar_corridas, puntada_recta,
+    puntada_triple, relleno_tatami, satin_de_region,
 )
 from . import segmentar as seg
 from .hilos import Hilo, elegir
@@ -58,6 +61,15 @@ GROSOR_CORRIDA_MIN_MM = 0.25
 # Y tiene que tener LARGO suficiente para que se vea como una linea. El largo
 # de una franja delgada es aproximadamente la mitad de su perimetro.
 LARGO_CORRIDA_MIN_MM = 2.5
+
+# Cuando una figura fina es lo bastante alargada como para tener un eje que la
+# represente. Por debajo se cose recorriendo el borde.
+ELONGACION_EJE_MIN = 3.0
+
+# Altura minima a la que un texto se lee bordado. Por debajo, el hilo (0.4 mm
+# de ancho) es demasiado grueso respecto de la letra: no es un limite del
+# programa sino del material, y ninguna maquina ni software lo salva.
+ALTURA_TEXTO_MINIMA_MM = 4.0
 
 def ordenar_corridas_enlazadas(corridas: list[Polilinea], desde: Punto
                                ) -> tuple[list[Polilinea], Punto]:
@@ -94,6 +106,12 @@ class Region:
     angulo: float
     elongacion: float
     centro: Punto
+
+    # Un TRAZO no es un area: es una linea con grosor, como el contorno de un
+    # SVG. `exterior` guarda el camino y `huecos` va vacio.
+    trazo: bool = False
+    ancho_trazo_mm: float = 0.0
+    cerrado: bool = True
 
     @property
     def grosor_mm(self) -> float:
@@ -149,6 +167,10 @@ def elegir_tecnica(r: Region, densidad_mm: float = 0.40,
       angosta se ve como una trama pegada encima.
     - "relleno" para todo lo demas.
     """
+    if r.trazo:
+        # Un contorno se cose siguiendo su camino. Si es mas ancho que una
+        # linea de hilo, se cubre con satin; si no, con corrida triple.
+        return "trazo_satin" if r.ancho_trazo_mm >= GROSOR_MINIMO_MM else "corrida"
     if aplique and r.area_mm2 >= APLIQUE_AREA_MINIMA_MM2:
         coste_relleno, coste_aplique = puntadas_estimadas(r, densidad_mm, p_aplique)
         if coste_aplique <= coste_relleno * (1.0 - APLIQUE_AHORRO_MINIMO):
@@ -180,6 +202,9 @@ class Digitalizacion:
     colores: np.ndarray | None = None
     descartadas: int = 0
     area_descartada_mm2: float = 0.0
+    # Cuantas piezas se cosieron de verdad: puede ser menos que las
+    # detectadas si el usuario eligio solo una parte del dibujo.
+    cosidas: int | None = None
     ancho_mm: float = 0.0
     alto_mm: float = 0.0
     colores_pedidos: int = 0
@@ -202,7 +227,11 @@ class Digitalizacion:
 
     def resumen(self) -> str:
         usados = self.hilos_usados
-        lineas = [f"Regiones cosidas: {len(self.regiones)}",
+        n = len(self.regiones) if self.cosidas is None else self.cosidas
+        lineas = [f"Regiones cosidas: {n} de {len(self.regiones)}"
+                  if self.cosidas is not None
+                  and self.cosidas != len(self.regiones)
+                  else f"Regiones cosidas: {n}",
                   f"Descartadas por finas o diminutas: {self.descartadas}"
                   f" ({self.area_descartada_mm2:.1f} mm2)",
                   f"Tamano: {self.ancho_mm:.1f} x {self.alto_mm:.1f} mm"]
@@ -269,6 +298,62 @@ def extraer_regiones(s: seg.Segmentacion, area_min_mm2: float = 1.0,
                 continue
             regiones.append(r)
     return regiones, descartadas, area_descartada
+
+
+def _eje_confiable(r: Region) -> Polilinea | None:
+    """
+    Eje central de la region, solo si de verdad se puede confiar en el.
+
+    `eje_de_franja` supone que la figura es una franja con dos lados largos.
+    Un "8", una estrella o cualquier forma que se bifurque no lo son, y ahi el
+    eje sale cruzando la figura por donde no hay hilo. Como la funcion no
+    siempre lo detecta sola, se comprueba el resultado: el ancho que implica
+    el eje tiene que parecerse al grosor medido de la region.
+    """
+    if r.huecos or len(r.exterior) < 8:
+        return None
+    # Solo para franjas de verdad: largas y angostas. Una figura compacta -el
+    # cuerpo de un numero, una estrellita- no tiene un eje que la represente,
+    # y forzarlo la convierte en un palito. Se midio sobre la insignia real:
+    # los contornos finos dan elongacion 3.6-3.8 y los digitos, 1.4-1.9.
+    if r.elongacion < ELONGACION_EJE_MIN:
+        return None
+    eje = eje_de_franja(r.exterior)
+    if eje is None or len(eje) < 3:
+        return None
+    largo = longitud(eje)
+    if largo <= 0:
+        return None
+    # Si el eje fuera correcto, area ~ largo * grosor. Un eje que se va por
+    # donde no corresponde da un largo desproporcionado.
+    implicado = r.area_mm2 / largo
+    return eje if 0.5 <= implicado / max(r.grosor_mm, 1e-6) <= 2.0 else None
+
+
+def _describir_trazo(color: int, puntos: Polilinea, ancho_mm: float,
+                     cerrado: bool) -> Region:
+    """
+    Empaqueta un contorno del SVG como Region.
+
+    Un trazo no tiene area: tiene largo y grosor. Se rellenan igual `area_mm2`
+    y `perimetro_mm` con el area y el largo que va a ocupar el hilo, para que
+    el resto del programa (el orden por cercania, el informe de superficie,
+    las estimaciones) siga funcionando sin casos especiales.
+    """
+    largo = longitud(puntos, cerrada=cerrado)
+    pts = np.asarray(puntos, dtype=float)
+    centro = pts.mean(axis=0)
+    d = pts - centro
+    cov = np.cov(d.T) if len(pts) > 2 else np.eye(2)
+    valores, vectores = np.linalg.eigh(cov)
+    principal = vectores[:, -1]
+    return Region(
+        color=color, exterior=list(puntos), huecos=[],
+        area_mm2=largo * ancho_mm, perimetro_mm=2.0 * largo,
+        angulo=math.degrees(math.atan2(principal[1], principal[0])) % 180.0,
+        elongacion=math.sqrt(max(valores[-1], 1e-12) / max(valores[0], 1e-12)),
+        centro=(float(centro[0]), float(centro[1])),
+        trazo=True, ancho_trazo_mm=ancho_mm, cerrado=cerrado)
 
 
 def _describir(color: int, exterior: Polilinea, huecos: list[Polilinea]) -> Region:
@@ -391,11 +476,12 @@ def regiones_desde_svg(ruta: Path, ancho_mm: float, area_min_mm2: float = 1.0
     """
     import numpy as np
 
-    from .svg import cargar as cargar_svg
+    from .svg import leer as leer_svg
     from .svg import separar as separar_svg
 
-    figuras = separar_svg(cargar_svg(ruta, ancho_mm), area_min_mm2)
-    if not figuras:
+    rellenos, trazos = leer_svg(ruta, ancho_mm)
+    figuras = separar_svg(rellenos, area_min_mm2)
+    if not figuras and not trazos:
         raise ValueError(
             "El SVG no tiene ninguna forma con relleno que se pueda bordar. "
             "Revisa que no sean solo trazos, y convierte el texto a curvas "
@@ -424,13 +510,52 @@ def regiones_desde_svg(ruta: Path, ancho_mm: float, area_min_mm2: float = 1.0
             area_descartada += r.area_mm2
         else:
             regiones.append(r)
+
+    # Los contornos (`stroke`) van despues de los rellenos: en el dibujo se
+    # pintan encima, y en el bordado tienen que coserse encima por la misma
+    # razon. Se saltan `separar`, que resta formas contenidas: un contorno no
+    # tapa nada, lo perfila.
+    for t in trazos:
+        if t.ancho_mm <= 0 or len(t.puntos) < 2:
+            continue
+        if longitud(t.puntos) < LARGO_CORRIDA_MIN_MM:
+            descartadas += 1
+            continue
+        if t.color not in indice:
+            indice[t.color] = len(colores)
+            colores.append(t.color)
+        regiones.append(_describir_trazo(indice[t.color], t.puntos,
+                                         t.ancho_mm, t.cerrado))
+
     return (regiones, np.array(colores, dtype=np.uint8), None,
             descartadas, area_descartada)
 
 
+# Resolucion de trabajo. Antes era 8 px/mm fijos, con el argumento de que un
+# pixel de 0.125 mm ya esta muy por debajo de la puntada mas corta. El
+# argumento es cierto y es irrelevante: lo que limita el detalle chico no es
+# donde cae la puntada, es cuantos pixeles de ancho tiene el rasgo cuando se
+# TRAZA su contorno. Un numero de 4 mm a 8 px/mm son 32 pixeles de alto y sus
+# trazos, 4: el contorno sale como una mancha y el numero no se reconoce.
+#
+# El tope de ancho existe porque el costo va con el AREA: subir la resolucion
+# al doble cuadruplica el trabajo del k-means. Con este par, una insignia de
+# 80 mm se trabaja a 16 px/mm y un diseno de 200 mm a 8, que es donde el
+# detalle relativo ya no lo necesita.
+PX_POR_MM_MAX = 16.0
+ANCHO_PX_MAX = 1600.0
+
+
+def resolucion_para(ancho_mm: float) -> float:
+    """Cuantos pixeles por milimetro conviene usar para este tamano."""
+    if ancho_mm <= 0:
+        return PX_POR_MM_MAX
+    return max(4.0, min(PX_POR_MM_MAX, ANCHO_PX_MAX / ancho_mm))
+
+
 def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
                 formato_hilos: str = "jef", g: ParamGlobales | None = None,
-                px_por_mm: float = 8.0, densidad_mm: float = 0.40,
+                px_por_mm: float | None = None, densidad_mm: float = 0.40,
                 area_min_mm2: float = 1.0, suavizado: int = 3,
                 quitar_fondo: bool = True, semilla: int = 0,
                 aplique: bool = False,
@@ -450,6 +575,8 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
     # Menos cortes de hilo: cada uno detiene la maquina alrededor de 1.5 s.
     g = replace(g, salto_max_sin_corte_mm=perfil_obj.salto_max_sin_corte_mm)
     ruta = Path(ruta)
+    if px_por_mm is None:
+        px_por_mm = resolucion_para(ancho_mm)
 
     if ruta.suffix.lower() == ".svg":
         regiones, colores, s, descartadas, area_desc = regiones_desde_svg(
@@ -479,6 +606,30 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
     for i in range(len(colores)):
         d.hilos[i] = elegir(colores[i], formato_hilos)
 
+    return tejer(d, g=g, densidad_mm=densidad_mm, perfil_obj=perfil_obj,
+                 aplique=aplique, p_aplique=p_aplique), d, s
+
+
+def tejer(d: "Digitalizacion", g: ParamGlobales | None = None,
+          densidad_mm: float = 0.40, perfil_obj: Perfil | None = None,
+          aplique: bool = False, p_aplique: ParamAplique | None = None,
+          incluir: set[int] | None = None) -> pe.EmbPattern:
+    """
+    Convierte las regiones ya analizadas en puntadas.
+
+    Esta separado de `digitalizar` a proposito. Analizar la imagen -reducir
+    colores, trazar contornos- es lo caro; tejer las puntadas es barato. Con
+    los dos pasos separados, el usuario puede ELEGIR que piezas quiere bordar
+    y volver a tejer cuantas veces quiera sin re-analizar nada.
+
+    `incluir` son los indices (sobre `d.regiones`) de las piezas a coser.
+    None = todas.
+    """
+    g = g or ParamGlobales()
+    perfil_obj = perfil_obj or PERFILES[PERFIL_POR_DEFECTO]
+    regiones = [r for i, r in enumerate(d.regiones)
+                if incluir is None or i in incluir]
+
     b = ConstructorPatron(g)
     tecnicas: dict[str, int] = {}
     bloques = 0
@@ -498,7 +649,6 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
             secuencia.append(r)
             aguja = r.centro          # provisional; se corrige al generarla
     regiones = secuencia
-    d.regiones = regiones
 
     aguja = (0.0, 0.0)
     for r in regiones:
@@ -529,18 +679,44 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
             d.area_descartada_mm2 += r.area_mm2
             continue
 
+        if tecnica == "trazo_satin":
+            # El contorno tiene grosor de verdad: se cubre con una columna
+            # satin entre sus dos bordes, que es como se borda un ribete.
+            mitad = r.ancho_trazo_mm / 2.0
+            camino = r.exterior + [r.exterior[0]] if r.cerrado else r.exterior
+            riel_a = desplazar_trazo(camino, mitad)
+            riel_b = desplazar_trazo(camino, -mitad)
+            corridas = columna_satin(
+                riel_a, riel_b,
+                ParamSatin(densidad_mm=max(0.30, densidad_mm - 0.05)))
+            if not corridas:
+                tecnica = "corrida"
+
         if tecnica == "corrida":
-            # Se sigue el CONTORNO de la region, no un eje medial calculado.
-            # En una franja de medio milimetro los dos bordes distan menos que
-            # el ancho del propio hilo, asi que recorrerlos deja exactamente la
-            # linea que se busca, sin la fragilidad de estimar un eje.
-            #
             # Triple (bean stitch) y no corrida simple: una sola pasada de hilo
             # sobre un trazo fino se ve desvaida, y es lo que se usa en la
             # industria para numeros y contornos chicos.
-            pr = ParamRecta(largo_mm=min(2.0, max(1.0, r.grosor_mm * 3)))
-            for anillo in [r.exterior, *r.huecos]:
-                corridas += puntada_triple(anillo, pr, cerrada=True)
+            if r.trazo:
+                # El trazo de un SVG YA es la linea: se cose tal cual.
+                corridas += puntada_triple(r.exterior, ParamRecta(largo_mm=2.0),
+                                           cerrada=r.cerrado)
+            else:
+                eje = _eje_confiable(r)
+                if eje is not None:
+                    # Por el EJE de la franja, no por su contorno. Cosiendo el
+                    # contorno el trazo queda hueco por dentro, y ademas ese
+                    # contorno se dobla sobre si mismo cada medio milimetro:
+                    # muestreado a la distancia de una puntada sale un
+                    # garabato en vez de un numero. Fue exactamente lo que
+                    # paso con el "1813" de una insignia.
+                    corridas += puntada_triple(eje, ParamRecta(largo_mm=1.2))
+                else:
+                    # No se comporta como franja (se bifurca, tiene huecos):
+                    # no hay eje que tenga sentido y se recorre el borde, con
+                    # la puntada corta para no cortar las curvas.
+                    pr = ParamRecta(largo_mm=1.0)
+                    for anillo in [r.exterior, *r.huecos]:
+                        corridas += puntada_triple(anillo, pr, cerrada=True)
 
         if tecnica == "satin":
             corridas = satin_de_region(
@@ -572,4 +748,5 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
     d.paradas = bloques
     d.notas = "\n\n".join(notas)
     d.tecnicas = tecnicas
-    return b.construir(), d, s
+    d.cosidas = len(regiones)
+    return b.construir()
