@@ -205,13 +205,25 @@ saber por dónde pasa: su **eje medial**. `imagen/esqueleto.py` lo calcula
 —rasteriza, adelgaza con Zhang-Suen, mide la distancia al borde y corta el
 esqueleto en ramas— y cada rama se cose como su propia columna.
 
-Medido sobre `1813` en DejaVu Sans Bold:
+Tres detalles que separan un número legible de un garabato, y que costaron
+un intento fallido cada uno:
 
-| Altura del dígito | Resultado |
+- **El trazo se cose por su eje, nunca por su contorno.** Recorrer el contorno
+  obliga a muestrear cada 0,7 mm y destruye la forma.
+- **Un trazo más fino que la puntada mínima no se ensancha: se cose con
+  corrida triple sobre el eje.** Ensancharlo hasta 0,7 mm cierra los huecos
+  del `8` y del `3`, y el número deja de leerse.
+- **Entre trazos de una letra se salta, no se cose.** Los trazos de un número
+  están a uno o dos milímetros: el enlace se activaba siempre y dejaba una
+  línea de hilo cruzando el carácter por el medio.
+
+Medido sobre el escudo del Instituto Nacional:
+
+| Ancho del diseño | Resultado del `1813` |
 |---|---|
-| 4,8 mm | se lee limpio |
-| 3,4 mm | se lee, con los trazos ya juntos |
-| 2,7 mm y menos | los trazos se tocan y el número se pierde |
+| 160 mm | limpio y legible |
+| 120 mm | legible |
+| 80 mm | se distingue, con los trazos ya juntos |
 
 Ese límite de ~4 mm es el mismo que manejan los digitalizadores
 profesionales, y es del **hilo**: 0,4 mm de ancho no caben tres veces dentro
@@ -788,7 +800,7 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (267 tests, en Windows / macOS / Linux):
+Implementado y testeado (272 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
@@ -837,8 +849,12 @@ Limitaciones conocidas (documentadas en el código):
   lettering por debajo de eso hacen falta fuentes vectoriales pre-digitalizadas
   a mano, que es como lo resuelven los programas comerciales.
 - El eje medial sale de un esqueleto por adelgazado, así que en una unión de
-  trazos (el centro de una "X") la columna satén se interrumpe y se retoma.
-  A tamaño de logo no se nota; en una letra muy grande, sí.
+  trazos la columna satén se interrumpe y se retoma. En un contorno largo eso
+  deja alguna muesca: el borde de un escudo de 15 cm se cose en unos 160
+  tramos porque el adelgazado genera bifurcaciones en cada irregularidad del
+  borde. Se podan las espinas y se vuelven a unir las ramas partidas, pero no
+  todas.
+- Digitalizar un logo complejo a 160 mm toma unos 15 segundos.
 - El offset que convierte un `stroke` en columna satén es por normales
   promediadas, igual que `desplazar_contorno`: con los grosores de un contorno
   (medio milímetro a cada lado) no alcanza a auto-intersectarse, pero un trazo

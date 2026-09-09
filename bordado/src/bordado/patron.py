@@ -33,6 +33,7 @@ class ObjetoBordado:
     corridas: list[Polilinea]
     catalogo: str = ""               # ej. "Madeira Polyneon 1801" (para la ficha tecnica)
     forzar_bloque: bool = False      # exige parada aunque el color se repita
+    enlazar: bool = True             # False: se salta entre corridas, no se cose
 
 
 class ConstructorPatron:
@@ -51,17 +52,26 @@ class ConstructorPatron:
         self._anterior: Polilinea = []
 
     def agregar(self, nombre: str, color: str, corridas: list[Polilinea],
-                catalogo: str = "", forzar_bloque: bool = False) -> "ConstructorPatron":
+                catalogo: str = "", forzar_bloque: bool = False,
+                enlazar: bool = True) -> "ConstructorPatron":
         """
         `forzar_bloque` exige que este objeto empiece un bloque de color nuevo
         aunque el color coincida con el anterior. Lo usa el aplique, donde la
         parada de la maquina es la instruccion para el operador y fusionar dos
         bloques la haria desaparecer.
+
+        `enlazar=False` prohibe llegar COSIENDO de una corrida a la siguiente.
+        Lo usan las letras: los trazos de un numero estan a uno o dos
+        milimetros unos de otros, asi que el enlace siempre se activa y deja
+        una linea de hilo cruzando el caracter por el medio. Sobre un relleno
+        eso no se ve; sobre un "8" de cuatro milimetros, lo arruina. Entre
+        trazos se salta con la aguja arriba, que es lo que se hace en
+        lettering.
         """
         corridas = [c for c in corridas if len(c) >= 2]
         if corridas:
-            self.objetos.append(
-                ObjetoBordado(nombre, color, corridas, catalogo, forzar_bloque))
+            self.objetos.append(ObjetoBordado(nombre, color, corridas,
+                                              catalogo, forzar_bloque, enlazar))
         return self
 
     # ----------------------------------------------------------------------
@@ -70,6 +80,10 @@ class ConstructorPatron:
         patron = pe.EmbPattern()
         color_actual: str | None = None
         ultimo: tuple[float, float] | None = None
+
+        # Si el objeto ANTERIOR prohibia enlazar, tampoco se enlaza al salir de
+        # el: el hilo cruzaria igual la letra, solo que hacia afuera.
+        permitir_enlace = True
 
         for obj in self.objetos:
             # --- Cambio de hilo si el color cambia, o si se exige parada ---
@@ -96,7 +110,8 @@ class ConstructorPatron:
                     cortar = True                     # arranque del bloque
                 else:
                     salto = math.dist(ultimo, inicio)
-                    if salto <= self.g.enlace_max_mm:
+                    if (salto <= self.g.enlace_max_mm
+                            and obj.enlazar and permitir_enlace):
                         enlazar = True                # se llega cosiendo
                     elif salto > self.g.salto_max_sin_corte_mm:
                         cortar = True                 # muy lejos: se corta
@@ -133,6 +148,8 @@ class ConstructorPatron:
 
                 ultimo = corrida[-1]
                 self._anterior = corrida
+
+            permitir_enlace = obj.enlazar
 
         # Remate final de la ultima costura, que si se va a cortar.
         if self.objetos and self._anterior:

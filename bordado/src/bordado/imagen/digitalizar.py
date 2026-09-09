@@ -71,6 +71,11 @@ ELONGACION_EJE_MIN = 3.0
 # cada uno se cose como columna satin. Por encima, la trama ya tiene sitio.
 LETRA_MAX_MM = 12.0
 
+# Ancho maximo de trazo que se cose siguiendo su eje. Por encima ya es una
+# superficie y le corresponde relleno; por debajo, una trama no tendria sitio
+# para varias pasadas y se veria como un rayado suelto en vez de un trazo.
+ANCHO_EJE_MAX_MM = 3.5
+
 # Altura minima a la que un texto se lee bordado. Por debajo, el hilo (0.4 mm
 # de ancho) es demasiado grueso respecto de la letra: no es un limite del
 # programa sino del material, y ninguna maquina ni software lo salva.
@@ -180,13 +185,22 @@ def elegir_tecnica(r: Region, densidad_mm: float = 0.40,
         coste_relleno, coste_aplique = puntadas_estimadas(r, densidad_mm, p_aplique)
         if coste_aplique <= coste_relleno * (1.0 - APLIQUE_AHORRO_MINIMO):
             return "aplique"
-    if (r.elongacion > SATIN_ELONGACION_MIN
-            and GROSOR_MINIMO_MM <= r.grosor_mm <= SATIN_ANCHO_MAX_MM):
-        return "satin"
     if r.grosor_mm < GROSOR_MINIMO_MM:
         # Demasiado fina para rellenar. Si es un trazo de verdad y no ruido,
         # se descompone en sus trazos y cada uno se cose como columna satin.
         return "letra" if es_corrida(r) else "descartar"
+    if r.grosor_mm <= ANCHO_EJE_MAX_MM:
+        # TODO trazo delgado se cose siguiendo su eje, sea una letra de cuatro
+        # milimetros o el contorno de un escudo de quince centimetros. Lo que
+        # decide no es el tamano de la figura sino el ANCHO del trazo.
+        #
+        # `satin_de_region` solo sirve para franjas simples: parte el contorno
+        # en dos lados largos con un doble barrido, y en un ANILLO -el marco de
+        # una cinta, el borde de un escudo- ese reparto no existe. El resultado
+        # salia a trozos. El eje medial no tiene ese problema porque no supone
+        # nada sobre la forma.
+        return "satin" if (r.elongacion > SATIN_ELONGACION_MIN
+                           and not r.huecos) else "letra"
     if es_letra(r):
         return "letra"
     return "relleno"
@@ -734,9 +748,26 @@ def tejer(d: "Digitalizacion", g: ParamGlobales | None = None,
             # las dos.
             ps = ParamSatin(densidad_mm=0.35, compensacion_mm=0.05,
                             underlay="none")
+            pr = ParamRecta(largo_mm=1.2)
             for eje, semi in trazos_de_region(r.exterior, r.huecos):
-                corridas += satin_por_eje(suavizar(eje), semi, ps,
-                                          ancho_minimo_mm=g.puntada_min_mm)
+                eje = suavizar(eje)
+                ancho = 2.0 * (sum(semi) / len(semi))
+                if ancho >= g.puntada_min_mm:
+                    corridas += satin_por_eje(eje, semi, ps,
+                                              ancho_minimo_mm=g.puntada_min_mm)
+                else:
+                    # PELO: el trazo es mas fino que la puntada minima. Una
+                    # columna satin habria que ensancharla hasta el minimo, y
+                    # eso engorda el numero: en un "8" o un "3" se cierran los
+                    # huecos y deja de leerse. Una corrida triple POR EL EJE
+                    # deja una linea del grosor del hilo, que es justo lo que
+                    # mide el trazo: respeta la letra en vez de inflarla.
+                    #
+                    # No confundir con recorrer el CONTORNO, que es lo que
+                    # fallaba antes: aqui se va por el EJE, asi que la puntada
+                    # avanza a lo largo del trazo y puede medir 1.2 mm sin
+                    # perder la forma.
+                    corridas += puntada_triple(eje, pr)
             if not corridas:
                 tecnica = "corrida"      # no se pudo descomponer
 
@@ -790,7 +821,10 @@ def tejer(d: "Digitalizacion", g: ParamGlobales | None = None,
             if h.hex != color_previo:
                 bloques += 1
                 color_previo = h.hex
-            b.agregar(f"c{r.color}", h.hex, corridas, catalogo=catalogo)
+            # En una letra no se puede llegar cosiendo de un trazo al
+            # siguiente: dejaria una linea de hilo cruzando el caracter.
+            b.agregar(f"c{r.color}", h.hex, corridas, catalogo=catalogo,
+                      enlazar=(tecnica != "letra"))
             tecnicas[tecnica] = tecnicas.get(tecnica, 0) + 1
 
     d.paradas = bloques

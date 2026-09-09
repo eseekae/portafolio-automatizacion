@@ -21,7 +21,7 @@ import pytest
 
 from bordado.geometria import circulo
 from bordado.imagen.esqueleto import (
-    PIXELES_MAX, PX_POR_MM, adelgazar, distancia_al_borde, ramas, rasterizar,
+    PIXELES_MAX, PX_POR_MM, adelgazar, medir_ancho, ramas, rasterizar,
     suavizar, trazos_de_region,
 )
 from bordado.parametros import ParamSatin
@@ -66,10 +66,18 @@ def test_una_figura_grande_baja_la_resolucion():
 
 # ------------------------------------------------ distancia y adelgazado
 
-def test_la_distancia_al_borde_mide_el_semiancho():
+def test_el_ancho_se_mide_perpendicular_al_trazo():
+    """
+    Se mide el ANCHO del trazo, no la distancia al borde mas cercano.
+
+    La distancia al borde puede salirse por una punta y subestimar; el ancho
+    perpendicular es lo que de verdad tiene que cubrir la columna satin.
+    """
     m, _, _, ppmm = rasterizar(franja(20.0, 2.0), [])
-    d = distancia_al_borde(m)
-    assert d.max() / ppmm == pytest.approx(1.0, abs=0.15)   # semiancho = 1 mm
+    alto, ancho = m.shape
+    # En el medio de la franja, avanzando en horizontal.
+    semi = medir_ancho(m, alto // 2, ancho // 2, 0, 1) / ppmm
+    assert semi == pytest.approx(1.0, abs=0.15)             # semiancho = 1 mm
 
 
 def test_el_adelgazado_deja_una_linea():
@@ -220,3 +228,30 @@ def test_sin_eje_no_hay_satin():
     assert satin_por_eje([], [], p) == []
     assert satin_por_eje([(0, 0)], [0.3], p) == []
     assert satin_por_eje([(0, 0), (1, 0)], [0.3], p) == []   # largos distintos
+
+
+# --------------------------------------------- pelos: mas finos que la puntada
+
+def test_un_pelo_no_se_engorda_hasta_la_puntada_minima():
+    """
+    Un trazo de 0.4 mm ensanchado a 0.7 deja de parecerse a la letra: en un
+    "8" o un "3" se cierran los huecos. Por eso, cuando el trazo es mas fino
+    que la puntada minima, se cose una corrida triple POR EL EJE en vez de una
+    columna satin: deja una linea del grosor del hilo, que es justo lo que
+    mide el trazo.
+
+    Ojo, POR EL EJE. Recorrer el contorno es otra cosa y no funciona: ahi la
+    puntada y el avance son lo mismo.
+    """
+    from bordado.parametros import ParamRecta
+    from bordado.puntadas import puntada_triple
+    eje = [(x * 0.5, 0.0) for x in range(20)]
+    corridas = puntada_triple(eje, ParamRecta(largo_mm=1.2))
+    assert corridas
+    puntos = corridas[0]
+    largos = [math.dist(puntos[i], puntos[i + 1]) for i in range(len(puntos) - 1)]
+    # La puntada avanza a lo largo del trazo, asi que puede ser larga. El cero
+    # es el punto donde la triple da la vuelta; el constructor lo filtra.
+    assert min(x for x in largos if x > 1e-9) >= 0.6
+    # Y no se sale de la linea: el ancho cubierto es el del hilo, no mas.
+    assert max(abs(q[1]) for q in puntos) < 1e-6
