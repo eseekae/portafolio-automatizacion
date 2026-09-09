@@ -100,17 +100,22 @@ class Perfil:
     descripcion: str
 
 
+# El ultimo numero es cuando cortar el hilo en vez de saltar. Cortar detiene
+# la maquina alrededor de 1.5 s; saltar no la detiene pero deja un hilo suelto
+# sobre la tela, que hay que recortar despues (las maquinas de la ultima
+# decada lo cortan solas). Cuanto mas alto el umbral, menos paradas y mas
+# hilos que repasar a mano.
 PERFILES = {
     "alta": Perfil(
-        "alta", 0.38, 3.2, 40.0, 8.0, 6.0,
-        "Maximo acabado. Para piezas de venta y telas dificiles."),
+        "alta", 0.38, 3.2, 40.0, 8.0, 8.0,
+        "Maximo acabado y minimo hilo suelto. Mas paradas de maquina."),
     "equilibrada": Perfil(
-        "equilibrada", 0.40, 3.5, 60.0, 12.0, 8.0,
+        "equilibrada", 0.40, 3.5, 60.0, 12.0, 12.0,
         "Lo que usa la industria. Buen acabado a tiempo razonable."),
     "rapida": Perfil(
-        "rapida", 0.45, 4.0, 150.0, 20.0, 12.0,
-        "Un tercio menos de tiempo. Se nota poco en areas grandes; en "
-        "detalles finos si."),
+        "rapida", 0.45, 4.0, 150.0, 20.0, 18.0,
+        "Un tercio menos de tiempo y la mitad de paradas. Deja algun hilo "
+        "suelto mas que recortar."),
 }
 PERFIL_POR_DEFECTO = "equilibrada"
 
@@ -120,7 +125,11 @@ class ParamGlobales:
     """Parametros que aplican al patron completo."""
     aro: Aro = AROS["brother_4x4"]
     margen_seguridad_mm: float = 2.0   # holgura minima contra el borde del aro
-    salto_max_sin_corte_mm: float = 6.0  # salto mas largo que esto -> TRIM
+    # Tres tramos, no dos. Si la siguiente costura empieza CERCA, se llega
+    # cosiendo: sin salto, sin corte y sin remates. Solo cuando queda lejos
+    # vale la pena levantar la aguja, y solo cuando queda MUY lejos, cortar.
+    enlace_max_mm: float = 5.0            # hasta aqui se llega cosiendo
+    salto_max_sin_corte_mm: float = 12.0  # salto mas largo que esto -> TRIM
     puntada_min_mm: float = 0.7        # filtro de puntadas cortas (limite fisico aguja)
     puntada_max_mm: float = 11.0       # tope al fusionar puntadas cortas
     remate_puntadas: int = 3           # tie-in / tie-off: puntadas de amarre
