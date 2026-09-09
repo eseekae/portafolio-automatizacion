@@ -108,9 +108,21 @@ def detectar_fondo(rgb: np.ndarray, fondo: np.ndarray,
     """
     Marca como fondo el color que domina el BORDE de la imagen.
 
-    Casi todo logo o dibujo viene sobre un fondo plano que no se borda. Se
-    mira solo el marco exterior: si un color ocupa mas de la mitad, se
-    considera fondo y se extiende a los pixeles de ese mismo color.
+    Casi todo logo o dibujo viene sobre un fondo plano que no se borda.
+
+    OJO CON LA CONECTIVIDAD, que es donde estuvo el error
+        No basta con borrar todos los pixeles de ese color: hay que borrar
+        solo los que se pueden alcanzar DESDE EL BORDE sin cruzar el dibujo.
+
+        Un escudo blanco sobre fondo blanco tiene las dos cosas del mismo
+        color, y son cosas distintas: lo de afuera es fondo y lo de adentro
+        es dibujo. Borrando por color se iban tambien el monograma blanco, el
+        interior de una cinta y cualquier contra de una letra. En el bordado
+        eso no es "nada": es hilo blanco, que sobre una polera de color es
+        justamente lo que se ve.
+
+        Por eso se rellena desde el borde hacia adentro y se para en el
+        dibujo. Lo que queda encerrado se borda.
     """
     if fondo.all():
         return fondo
@@ -120,7 +132,53 @@ def detectar_fondo(rgb: np.ndarray, fondo: np.ndarray,
     if cuentas.max() < 0.5 * len(marco):
         return fondo   # borde heterogeneo: probablemente no hay fondo plano
     d = diferencia(rgb_a_lab(rgb), rgb_a_lab(dominante))
-    return fondo | (d < tolerancia)
+    # Los transparentes tambien dejan pasar: un logo recortado tiene el fondo
+    # en alfa y el color plano solo en los bordes del recorte.
+    candidato = (d < tolerancia) | fondo
+    return fondo | _alcanzable_desde_el_borde(candidato)
+
+
+def _alcanzable_desde_el_borde(candidato: np.ndarray) -> np.ndarray:
+    """
+    Que parte de `candidato` se toca con el borde de la imagen.
+
+    Relleno por inundacion con barrido de FILAS, no pixel a pixel: se avanza
+    por tramos horizontales completos. En una imagen de un millon de pixeles
+    la diferencia es entre decimas de segundo y varios segundos.
+    """
+    alto, ancho = candidato.shape
+    visto = np.zeros_like(candidato)
+    pila: list[tuple[int, int]] = []
+
+    for j in (0, alto - 1):
+        pila += [(j, i) for i in range(ancho) if candidato[j, i]]
+    for i in (0, ancho - 1):
+        pila += [(j, i) for j in range(alto) if candidato[j, i]]
+
+    while pila:
+        j, i = pila.pop()
+        if visto[j, i] or not candidato[j, i]:
+            continue
+        # Se estira el tramo hacia los dos lados hasta topar con el dibujo.
+        izq = i
+        while izq > 0 and candidato[j, izq - 1] and not visto[j, izq - 1]:
+            izq -= 1
+        der = i
+        while der < ancho - 1 and candidato[j, der + 1] and not visto[j, der + 1]:
+            der += 1
+        visto[j, izq:der + 1] = True
+        # Y se siembran los tramos de arriba y de abajo.
+        for jj in (j - 1, j + 1):
+            if 0 <= jj < alto:
+                fila = candidato[jj, izq:der + 1] & ~visto[jj, izq:der + 1]
+                dentro = False
+                for k, v in enumerate(fila):
+                    if v and not dentro:
+                        pila.append((jj, izq + k))
+                        dentro = True
+                    elif not v:
+                        dentro = False
+    return visto
 
 
 # --------------------------------------------------------------------------
