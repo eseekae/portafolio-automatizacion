@@ -56,6 +56,7 @@ class Aplicacion(ttk.Frame):
         self._salida_editada = False   # si el usuario la toco, no la pisamos
         self._miniaturas: list = []    # tkinter no retiene las imagenes: hay
                                        # que guardar la referencia o se borran
+        self._simulacion = None
 
         raiz.title(f"{TITULO} v{__version__}")
         raiz.minsize(760, 660)
@@ -230,6 +231,9 @@ class Aplicacion(ttk.Frame):
         self.btn_digitalizar = ttk.Button(a, text="Digitalizar",
                                           command=self._digitalizar)
         self.btn_digitalizar.pack(side=LEFT)
+        self.btn_simular = ttk.Button(a, text="Ver como lo borda la maquina",
+                                      state="disabled", command=self._ver_simulacion)
+        self.btn_simular.pack(side=LEFT, padx=(6, 0))
         ttk.Label(a, text="Si el corte de colores no te convence, cambia la "
                           "semilla:").pack(side=LEFT, padx=(16, 4))
         ttk.Spinbox(a, from_=0, to=99, width=4,
@@ -352,6 +356,7 @@ class Aplicacion(ttk.Frame):
             f"{trabajo.ancho_mm:.0f} mm de ancho · {trabajo.n_colores} colores · "
             f"{', '.join('.' + f for f in trabajo.formatos)}\n", "titulo")
         self.lbl_bordado.config(image="", text="calculando...")
+        self.btn_simular.config(state="disabled")
         self._ocupar()
         self.barra.config(mode="indeterminate")
         # 12 ms eran ~80 cuadros por segundo para una barra de progreso: puro
@@ -359,6 +364,11 @@ class Aplicacion(ttk.Frame):
         # presion sobre el bucle de eventos.
         self.barra.start(30)
         self.ctrl.iniciar_imagen(trabajo)
+
+    def _ver_simulacion(self) -> None:
+        """Abre en el navegador la reproduccion del bordado."""
+        if self._simulacion and Path(self._simulacion).is_file():
+            webbrowser.open(Path(self._simulacion).resolve().as_uri())
 
     def _abrir_salida(self) -> None:
         ruta = (self.v_salida.get().strip()
@@ -439,6 +449,9 @@ class Aplicacion(ttk.Frame):
         self.v_estado.set(f"Listo: {len(ev.archivos)} archivo(s) generados.")
         if ev.vista_previa and ev.vista_previa.exists():
             self._mostrar(self.lbl_bordado, ev.vista_previa, "(sin resultado)")
+        self._simulacion = ev.simulacion
+        if ev.simulacion and Path(ev.simulacion).is_file():
+            self.btn_simular.config(state="normal")
         salida = self.v_salida_img.get().strip()
         if salida and Path(salida).is_dir():
             self.btn_abrir.config(state="normal")

@@ -104,24 +104,31 @@ def validar(patron: pe.EmbPattern, g: ParamGlobales,
     cortas = largas = 0
     saltos_largos = 0
     total_mm = 0.0
-    prev = None
+    prev = None          # ultima PERFORACION, para medir largos de puntada
+    aguja = None         # ultima posicion FISICA, para medir saltos
     corte_pendiente = True   # tras un TRIM el salto es legitimo, no un defecto
     for x, y, cmd in stitches:
         base = cmd & pe.COMMAND_MASK
         if base in (pe.TRIM, pe.COLOR_CHANGE, pe.STOP, pe.NEEDLE_SET):
             corte_pendiente = True
-        if prev is not None and base in (pe.STITCH, pe.JUMP):
+        if base == pe.STITCH and prev is not None:
             d = math.hypot(x - prev[0], y - prev[1]) / UNIDADES_POR_MM
-            if base == pe.STITCH:
-                total_mm += d
-                if 0 < d < PUNTADA_MIN_MM:
-                    cortas += 1
-                elif d > PUNTADA_MAX_MM:
-                    largas += 1
-            elif d > g.salto_max_sin_corte_mm and not corte_pendiente:
+            total_mm += d
+            if 0 < d < PUNTADA_MIN_MM:
+                cortas += 1
+            elif d > PUNTADA_MAX_MM:
+                largas += 1
+        elif base == pe.JUMP and aguja is not None:
+            d = math.hypot(x - aguja[0], y - aguja[1]) / UNIDADES_POR_MM
+            if d > g.salto_max_sin_corte_mm and not corte_pendiente:
                 saltos_largos += 1
+        # El largo de puntada solo tiene sentido entre dos perforaciones
+        # SEGUIDAS. Tras un salto, la aguja baja en el punto de llegada: eso
+        # es una perforacion, no una puntada de largo cero. Por eso el salto
+        # corta la continuidad en vez de heredar su posicion.
+        prev = (x, y) if base == pe.STITCH else None
         if base in (pe.STITCH, pe.JUMP, pe.SEQUIN_EJECT):
-            prev = (x, y)
+            aguja = (x, y)
         if base == pe.STITCH:
             corte_pendiente = False
 

@@ -139,6 +139,7 @@ class FinImagen:
     calidad: str = ""
     archivos: list[Path] = field(default_factory=list)
     vista_previa: Path | None = None
+    simulacion: Path | None = None
     error: str = ""
 
 
@@ -240,9 +241,24 @@ class Controlador:
                 notas=d.notas)
             previa = next((a for a in archivos if a.name.endswith("_preview.png")),
                           None)
+
+            # La simulacion se genera siempre: cuesta centesimas de segundo y
+            # es lo unico que deja ver el recorrido de la aguja antes de gastar
+            # hilo y tela.
+            simulacion = None
+            try:
+                from ..simular import simular
+                simulacion, _ = simular(
+                    patron, destino / f"{nombre}_simulacion.html", titulo=nombre)
+                archivos.append(simulacion)
+            except Exception as e:  # noqa: BLE001 - accesorio, no critico
+                self.cola.put(Mensaje(f"No se pudo generar la simulacion: {e}",
+                                      "error"))
+
             self.cola.put(FinImagen(resumen=d.resumen(),
                                     calidad=reporte.texto(),
-                                    archivos=archivos, vista_previa=previa))
+                                    archivos=archivos, vista_previa=previa,
+                                    simulacion=simulacion))
         except Exception as e:  # noqa: BLE001 - la ventana no puede morir en silencio
             self.cola.put(FinImagen(error=f"{type(e).__name__}: {e}"))
 

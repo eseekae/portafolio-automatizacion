@@ -45,6 +45,7 @@ DENSIDAD_BAJA = 60.0    # por debajo: se empieza a ver la tela
 class Analisis:
     puntadas: int = 0
     saltos: int = 0
+    recorrido_mm: float = 0.0
     cortes: int = 0
     colores: int = 0
     ancho_mm: float = 0.0
@@ -78,6 +79,8 @@ class Analisis:
             f"  {'Hilo (m)':.<34} {self.hilo_m:.1f}",
             f"  {'Largo medio de puntada (mm)':.<34} {self.largo_medio_mm:.2f}",
             f"  {'Cortes de hilo':.<34} {self.cortes:,}",
+            f"  {'Saltos (aguja en vacio)':.<34} {self.saltos:,}"
+            f"  ·  {self.recorrido_mm / 10:.0f} cm de recorrido",
             f"  {'Cambios de color':.<34} {self.colores}",
             "-" * 62,
             " TIEMPO ESTIMADO",
@@ -114,7 +117,11 @@ def analizar(patron: pe.EmbPattern, velocidad_ppm: int = 700,
 
     segmentos: list[tuple[tuple[float, float], tuple[float, float]]] = []
     largos: list[float] = []
+    # Dos posiciones distintas: la ultima PUNTADA (para medir largos, que se
+    # interrumpe al cortar) y la ultima posicion FISICA de la aguja (para medir
+    # recorrido, que no se interrumpe: el cabezal se mueve igual).
     previo = None
+    aguja = None
     for x, y, cmd in norm.stitches:
         base = cmd & pe.COMMAND_MASK
         if base == pe.STITCH:
@@ -122,10 +129,19 @@ def analizar(patron: pe.EmbPattern, velocidad_ppm: int = 700,
                 d = math.hypot(x - previo[0], y - previo[1]) / UNIDADES_POR_MM
                 largos.append(d)
                 segmentos.append((previo, (x, y)))
-            previo = (x, y)
+            elif aguja is not None:
+                a.recorrido_mm += math.hypot(x - aguja[0],
+                                             y - aguja[1]) / UNIDADES_POR_MM
+            previo = aguja = (x, y)
         elif base == pe.JUMP:
             a.saltos += 1
-            previo = (x, y)
+            if aguja is not None:
+                a.recorrido_mm += math.hypot(x - aguja[0],
+                                             y - aguja[1]) / UNIDADES_POR_MM
+            # Tras el salto la aguja baja en el destino: esa es la primera
+            # perforacion del tramo, no una puntada de largo cero.
+            previo = None
+            aguja = (x, y)
         else:
             if base == pe.TRIM:
                 a.cortes += 1
@@ -194,6 +210,12 @@ def _sugerir(a: Analisis, velocidad_ppm: int) -> list[str]:
             f"El largo medio de puntada es {a.largo_medio_mm:.2f} mm, corto. "
             "En areas grandes se puede subir a 3.5-4.0 mm sin que se note: "
             f"eso ronda {ahorro(0.10)}.")
+
+    if a.recorrido_mm > 20 * math.sqrt(max(a.area_cubierta_cm2, 1)) * 10:
+        salida.append(
+            f"La aguja recorre {a.recorrido_mm / 10:.0f} cm en vacio para un "
+            f"diseno de {a.area_cubierta_cm2:.0f} cm2. Es mucho ir y venir: "
+            "el diseno se cose salteado en vez de por zonas.")
 
     # Un corte cada 300 puntadas ya es mucho picoteo; por debajo es normal.
     if a.cortes > a.puntadas / 300 and a.minutos_cortes > 0.5:

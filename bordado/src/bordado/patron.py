@@ -48,6 +48,7 @@ class ConstructorPatron:
     def __init__(self, g: ParamGlobales | None = None) -> None:
         self.g = g or ParamGlobales()
         self.objetos: list[ObjetoBordado] = []
+        self._anterior: Polilinea = []
 
     def agregar(self, nombre: str, color: str, corridas: list[Polilinea],
                 catalogo: str = "", forzar_bloque: bool = False) -> "ConstructorPatron":
@@ -86,25 +87,57 @@ class ConstructorPatron:
                 if len(corrida) < 2:
                     continue
                 inicio = corrida[0]
-                # --- Salto o corte segun distancia recorrida en vacio ---
-                if ultimo is not None:
-                    salto = math.dist(ultimo, inicio)
-                    if salto > self.g.salto_max_sin_corte_mm:
-                        patron.trim()   # evita el "hilo de telarana" entre partes
-                patron.move_abs(*self._u(inicio))
 
-                # --- Tie-in: amarra el hilo antes de empezar ---
-                for pnt in self._remate(corrida):
-                    patron.stitch_abs(*self._u(pnt))
+                # --- Como se llega a la costura siguiente -----------------
+                # Tres casos, no dos. El del medio es el que faltaba y el que
+                # hacia que la maquina cortara para moverse dos milimetros.
+                enlazar = cortar = False
+                if ultimo is None:
+                    cortar = True                     # arranque del bloque
+                else:
+                    salto = math.dist(ultimo, inicio)
+                    if salto <= self.g.enlace_max_mm:
+                        enlazar = True                # se llega cosiendo
+                    elif salto > self.g.salto_max_sin_corte_mm:
+                        cortar = True                 # muy lejos: se corta
+
+                if cortar and ultimo is not None:
+                    # Remate de salida: solo tiene sentido si se va a cortar.
+                    # Sin corte no hay punta suelta que asegurar.
+                    for pnt in self._remate(self._anterior[::-1]):
+                        patron.stitch_abs(*self._u(pnt))
+                    patron.trim()
+
+                if enlazar:
+                    # Se cose el tramo hasta el inicio, partido para que
+                    # ninguna puntada se pase de larga.
+                    for pnt in self._enlace(ultimo, inicio):
+                        patron.stitch_abs(*self._u(pnt))
+                    # Si el arranque cae practicamente encima de donde quedo
+                    # la aguja, se omite: repetir esa perforacion daria una
+                    # puntada mas corta que el minimo y la aguja repicaria el
+                    # mismo agujero.
+                    if math.dist(ultimo, inicio) < self.g.puntada_min_mm:
+                        corrida = corrida[1:]
+                        if len(corrida) < 2:
+                            continue
+                else:
+                    patron.move_abs(*self._u(inicio))
+                    if cortar:
+                        # Remate de entrada: amarra el hilo recien cortado.
+                        for pnt in self._remate(corrida):
+                            patron.stitch_abs(*self._u(pnt))
 
                 for pnt in corrida:
                     patron.stitch_abs(*self._u(pnt))
 
-                # --- Tie-off: amarra antes de cortar ---
-                for pnt in self._remate(corrida[::-1]):
-                    patron.stitch_abs(*self._u(pnt))
-
                 ultimo = corrida[-1]
+                self._anterior = corrida
+
+        # Remate final de la ultima costura, que si se va a cortar.
+        if self.objetos and self._anterior:
+            for pnt in self._remate(self._anterior[::-1]):
+                patron.stitch_abs(*self._u(pnt))
 
         patron.end()
         return patron
@@ -141,6 +174,27 @@ class ConstructorPatron:
         if math.dist(salida[-1], ultimo) >= mn or len(salida) == 1:
             salida.append(ultimo)
         return salida
+
+    def _enlace(self, desde: tuple[float, float],
+                hasta: tuple[float, float]) -> Polilinea:
+        """
+        Camino cosido entre dos costuras vecinas.
+
+        Es lo que evita el corte inutil: si el siguiente arranque queda a unos
+        milimetros, la aguja llega cosiendo en vez de levantarse, cortar y
+        volver a amarrar.
+
+        Devuelve solo los puntos INTERMEDIOS. El punto de llegada lo cose la
+        propia costura siguiente, que empieza justo ahi; anadirlo aqui daria
+        una puntada de largo cero.
+        """
+        d = math.dist(desde, hasta)
+        if d <= self.g.puntada_max_mm:
+            return []          # se llega de una puntada, sin partir nada
+        trozos = int(math.ceil(d / self.g.puntada_max_mm))
+        return [(desde[0] + (hasta[0] - desde[0]) * k / trozos,
+                 desde[1] + (hasta[1] - desde[1]) * k / trozos)
+                for k in range(1, trozos)]
 
     def _remate(self, corrida: Polilinea) -> Polilinea:
         """

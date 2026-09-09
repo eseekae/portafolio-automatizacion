@@ -30,7 +30,9 @@ from ..parametros import (
     ParamSatin, Perfil,
 )
 from ..patron import ConstructorPatron
-from ..puntadas import puntada_recta, relleno_tatami, satin_de_region
+from ..puntadas import (
+    ordenar_corridas, puntada_recta, relleno_tatami, satin_de_region,
+)
 from . import segmentar as seg
 from .hilos import Hilo, elegir
 from .vectorizar import separar_figuras, simplificar, trazar_anillos
@@ -38,6 +40,24 @@ from .vectorizar import separar_figuras, simplificar, trazar_anillos
 # Por debajo de este grosor no hay puntada que quepa: la region se descarta
 # en vez de generar basura que rompe agujas.
 GROSOR_MINIMO_MM = 0.9
+
+def ordenar_corridas_enlazadas(corridas: list[Polilinea], desde: Punto
+                               ) -> tuple[list[Polilinea], Punto]:
+    """
+    Elige por cual de las corridas empezar segun donde quedo la aguja, sin
+    romper el orden de fases.
+
+    Las corridas de una region llegan en el orden correcto (underlay, relleno,
+    contorno). Solo se decide si conviene dar vuelta la PRIMERA, que es lo
+    unico que se puede tocar sin alterar ese orden.
+    """
+    if not corridas:
+        return corridas, desde
+    primera = corridas[0]
+    if math.dist(desde, primera[-1]) < math.dist(desde, primera[0]):
+        corridas = [primera[::-1]] + corridas[1:]
+    return corridas, corridas[-1][-1]
+
 
 # Una franja mas ancha que esto deja el hilo flojo y se engancha: se rellena.
 SATIN_ANCHO_MAX_MM = 6.0
@@ -273,29 +293,46 @@ def decidir(r: Region, densidad_mm: float = 0.40,
 # Etapa 4: orden de colores y de recorrido
 # --------------------------------------------------------------------------
 
-def ordenar(regiones: list[Region]) -> list[Region]:
+def agrupar_por_color(regiones: list[Region]) -> list[list[Region]]:
     """
-    Ordena por color y, dentro de cada color, por cercania.
+    Agrupa las regiones por color, de mayor a menor superficie total.
 
-    Los colores van de mayor a menor superficie total: lo grande primero hace
-    de fondo y lo pequeno queda encima, que es el orden en que se borda a
-    mano. Dentro de un color se encadenan las regiones por vecino mas cercano
-    (heuristica de viajante) para acortar los saltos de aguja.
+    Lo grande primero hace de fondo y lo pequeno queda encima, que es el orden
+    en que se borda a mano. El recorrido DENTRO de cada color no se decide
+    aqui: depende de donde quede la aguja al terminar cada region, y eso solo
+    se sabe al ir generando las puntadas.
     """
     por_color: dict[int, list[Region]] = {}
     for r in regiones:
         por_color.setdefault(r.color, []).append(r)
-
-    orden_colores = sorted(por_color, key=lambda c: sum(
+    orden = sorted(por_color, key=lambda c: sum(
         r.area_mm2 for r in por_color[c]), reverse=True)
+    return [por_color[c] for c in orden]
 
+
+def mas_cercana(regiones: list[Region], desde: Punto) -> int:
+    """
+    Indice de la region cuyo borde queda mas cerca de `desde`.
+
+    Se mide contra el CONTORNO, no contra el centro: la aguja llega al borde
+    de la region, no a su centro, y en formas alargadas la diferencia entre
+    una medida y otra es de centimetros.
+    """
+    def distancia(r: Region) -> float:
+        paso = max(1, len(r.exterior) // 24)
+        return min(math.dist(desde, q) for q in r.exterior[::paso])
+
+    return min(range(len(regiones)), key=lambda k: distancia(regiones[k]))
+
+
+def ordenar(regiones: list[Region]) -> list[Region]:
+    """Orden de referencia, sin conocer el recorrido real de la aguja."""
     salida: list[Region] = []
     actual: Punto = (0.0, 0.0)
-    for color in orden_colores:
-        pendientes = list(por_color[color])
+    for grupo in agrupar_por_color(regiones):
+        pendientes = list(grupo)
         while pendientes:
-            i = min(range(len(pendientes)),
-                    key=lambda k: math.dist(actual, pendientes[k].centro))
+            i = mas_cercana(pendientes, actual)
             r = pendientes.pop(i)
             salida.append(r)
             actual = r.centro
@@ -393,6 +430,22 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
     color_previo: str | None = None
     notas: list[str] = []
 
+    # La region siguiente se elige por donde quedo la aguja de verdad, no por
+    # el centro de la anterior. Ordenar de antemano obliga a suponer la
+    # posicion final, y en formas alargadas esa suposicion se equivoca por
+    # centimetros: son saltos largos, y cada salto largo obliga a cortar.
+    aguja: Punto = (0.0, 0.0)
+    secuencia: list[Region] = []
+    for grupo in agrupar_por_color(regiones):
+        pendientes = list(grupo)
+        while pendientes:
+            r = pendientes.pop(mas_cercana(pendientes, aguja))
+            secuencia.append(r)
+            aguja = r.centro          # provisional; se corrige al generarla
+    regiones = secuencia
+    d.regiones = regiones
+
+    aguja = (0.0, 0.0)
     for r in regiones:
         h = d.hilos[r.color]
         catalogo = f"{h.marca} {h.catalogo} {h.nombre}".strip()
@@ -433,6 +486,9 @@ def digitalizar(ruta: Path, ancho_mm: float, n_colores: int = 5,
                                           cerrada=True)
 
         if corridas:
+            # Se enlaza con lo anterior: la primera corrida de esta region es
+            # la que quede mas cerca de donde solto la aguja.
+            corridas, aguja = ordenar_corridas_enlazadas(corridas, aguja)
             if h.hex != color_previo:
                 bloques += 1
                 color_previo = h.hex
