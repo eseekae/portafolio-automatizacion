@@ -26,6 +26,14 @@ programar.
 
 ---
 
+> ### ⚠️ Si generaste matrices con la versión 0.7.0 o anterior, vuelve a generarlas
+>
+> Hasta la 0.7.0 los archivos salían **espejados verticalmente**: la máquina
+> bordaba el diseño cabeza abajo. No se notaba porque la vista previa y el
+> simulador aplicaban un volteo propio, así que en pantalla se veía derecho.
+> Corregido en la 0.8.0. Los archivos ya generados **no se arreglan solos**:
+> hay que volver a digitalizarlos desde la imagen o el SVG.
+
 # Descargar e instalar
 
 **[⬇ Ir a la página de descargas](https://github.com/eseekae/portafolio-automatizacion/releases/latest)**
@@ -128,8 +136,13 @@ Tres cosas que sí hace bien y que la mayoría de los automáticos baratos no:
 
 - **Respeta los huecos.** El centro de una letra "o", el asa de una taza o un
   anillo quedan vacíos, no rellenos.
-- **Descarta lo que no se puede coser.** Un trazo más fino que 0,9 mm no
-  admite puntada: se descarta en vez de romperte agujas.
+- **Borda el detalle fino en vez de tirarlo.** Un trazo de medio milímetro
+  —el año de un escudo, un contorno delgado, la contra de una letra— no se
+  puede *rellenar*: no cabe la puntada. Pero sí se puede *bordar*, con una
+  corrida de puntadas sobre el trazo, que es como lo hace cualquier
+  digitalizador profesional. El hilo mide unos 0,4 mm de ancho, así que una
+  línea de hilo **es** el trazo. Solo se descarta lo que ya no es dibujo sino
+  el halo difuso que deja reducir la imagen (por debajo de 0,25 mm).
 - **Te dice qué hilos comprar.** Elige de la paleta real de tu máquina, con
   nombre y número, y avisa cuándo el color es solo aproximado.
 
@@ -388,6 +401,10 @@ matriz simular dragon.pes
 
 **Qué se ve**
 
+- **Todo el diseño en una pantalla**, sin scrollear: el lienzo se ajusta al
+  hueco que queda en la ventana, tanto en el computador como en el teléfono.
+  Para mirar de cerca, rueda del ratón o pellizco; para moverte, arrastra.
+  El botón **Ajustar a la pantalla** devuelve el encuadre completo.
 - La aguja avanzando, con reproducción, pausa, retroceso y 4 velocidades.
 - La barra para **ir a una puntada exacta**: si sospechas de una zona, te
   paras justo ahí.
@@ -408,6 +425,12 @@ matriz simular dragon.pes
 | Hilos cruzando | líneas punteadas largas sobre el diseño |
 | Zonas cosidas dos veces | el mismo tramo se repinta |
 | Orden de colores | qué color tapa a cuál |
+
+- **Lo que ves es el archivo, sin maquillaje.** El simulador no endereza ni
+  corrige nada: dibuja las coordenadas tal como están escritas. Si el archivo
+  sale torcido, se ve torcido — que para eso es un simulador. Un visor que
+  arregla las cosas por su cuenta es justamente cómo pasó inadvertido, durante
+  seis versiones, que las matrices salían espejadas.
 
 El HTML es **autónomo**: no necesita internet, ni tener el programa instalado.
 Se lo puedes mandar por correo o WhatsApp a un cliente para que apruebe el
@@ -628,9 +651,18 @@ exportar.py         PES/JEF/DST/EXP/VP3 + preview PNG + ficha + ZIP
 **Convención de unidades:** todo el dominio trabaja en **milímetros** (float).
 La conversión a unidades de máquina (1/10 mm) ocurre solo en `patron.py`.
 
-**Eje Y:** los formatos de bordado usan Y hacia arriba; las imágenes, hacia
-abajo. `exportar.py` invierte el eje solo para el PNG de preview, y
-`simular.py` solo para el lienzo del navegador.
+**Eje Y:** el dominio trabaja con Y hacia **arriba** (como en matemáticas);
+pyembroidery y los formatos de imagen, hacia **abajo**. El signo se cambia en
+exactamente dos sitios, uno por sentido: al **entrar** (`imagen/segmentar.py`
+y `imagen/svg.py`, que leen archivos con Y hacia abajo) y al **salir**
+(`patron._u`, la única frontera de mm a unidades de máquina). Nadie más lo
+toca: ni la preview, ni el simulador.
+
+> Hasta la 0.7.0 el cambio de salida **no existía** y todos los archivos
+> salían espejados. La preview y el simulador lo compensaban con un volteo
+> propio, así que en pantalla todo se veía bien mientras la máquina bordaba al
+> revés. Si la preview vuelve a salir invertida, el error está en `patron._u`
+> — se arregla en la frontera, nunca con un segundo volteo.
 
 **Transición entre corridas** (`patron.py`), decidida por la distancia: hasta
 `enlace_max_mm` se llega **cosiendo**, hasta `salto_max_sin_corte_mm` se salta
@@ -674,7 +706,7 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (212 tests, en Windows / macOS / Linux):
+Implementado y testeado (221 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
@@ -685,7 +717,10 @@ Implementado y testeado (212 tests, en Windows / macOS / Linux):
 - Análisis de eficiencia con tiempo realista y perfiles de calidad
 - Recorrido de aguja optimizado: la mitad de cortes de hilo
 - Enlace cosido entre corridas cercanas en vez de cortar y saltar
-- Simulador HTML autónomo: reproducción puntada a puntada y revisión de fallas
+- Simulador HTML autónomo: reproducción puntada a puntada, encuadre a
+  pantalla, zoom y revisión de fallas
+- Detalle fino (contornos, números, trazos de medio milímetro) cosido con
+  corrida triple en vez de descartado
 - Aplicación de escritorio de dos pestañas y empaquetado a ejecutable
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
@@ -706,6 +741,14 @@ Limitaciones conocidas (documentadas en el código):
   carísimo y la heurística ya baja el recorrido un 78% dentro de cada región.
 - El satin automático trata cada región por separado: no encadena varias
   ramas de una misma letra en una sola columna continua.
+- La corrida de detalle fino sigue el **contorno** de la región, no su eje
+  medial. En un trazo de medio milímetro los dos bordes distan menos que el
+  ancho del propio hilo y no se nota; en uno de 0,8 mm se ven dos líneas
+  paralelas muy juntas en vez de una sola. Calcular el eje medial de verdad
+  exige un esqueleto morfológico, que es caro y frágil con contornos ruidosos.
+- Un texto muy chico (menos de ~4 mm de alto) sale como el contorno de cada
+  letra, no como letras macizas. Para lettering de verdad hacen falta fuentes
+  vectoriales propias, que es otro proyecto.
 - El appliqué usa el contorno completo de la región. Un diseño real suele
   aplicar la silueta entera y bordar los detalles encima.
 - `.exp` no almacena colores: necesita un `.inf`/`.edr` acompañante.
