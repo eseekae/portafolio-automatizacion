@@ -160,6 +160,19 @@ def _cmd_digitalizar(args: argparse.Namespace) -> int:
         semilla=args.semilla, aplique=args.aplique, perfil=args.calidad,
         p_aplique=ParamAplique(ancho_cobertura_mm=args.ancho_cobertura))
 
+    if args.sin_detalle_fino:
+        from .imagen.digitalizar import PERFILES, tejer
+        gruesas = {i for i, r in enumerate(d.regiones)
+                   if r.grosor_mm >= 0.9 and not r.trazo}
+        if not gruesas:
+            print("error: sin el detalle fino no queda nada que bordar.",
+                  file=sys.stderr)
+            return 1
+        # Re-tejer es barato: el analisis de la imagen ya esta hecho.
+        patron = tejer(d, g=g, densidad_mm=args.densidad,
+                       perfil_obj=PERFILES.get(args.calidad),
+                       aplique=args.aplique, incluir=gruesas)
+
     print(d.resumen())
     if d.notas:
         print()
@@ -337,6 +350,9 @@ def construir_parser() -> argparse.ArgumentParser:
                     choices=("alta", "equilibrada", "rapida"),
                     help="compromiso entre acabado y tiempo de maquina "
                          "(rapida ahorra ~20%% del tiempo)")
+    dg.add_argument("--sin-detalle-fino", action="store_true",
+                    help="no borda los trazos, contornos y numeros mas finos "
+                         "de 0.9 mm (util cuando a ese tamano no se leen)")
     dg.add_argument("--aplique", action="store_true",
                     help="usa aplique (coser sobre un retazo de tela) en las "
                          "areas grandes donde ahorre puntadas")
