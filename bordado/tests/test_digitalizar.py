@@ -495,19 +495,39 @@ def test_una_bahia_abierta_si_es_fondo(tmp_path: Path):
 
 # ------------------------------------------------ trazos finos y contornos
 
-def test_un_contorno_largo_y_fino_se_cose_por_su_eje():
+def test_un_contorno_se_cose_entre_sus_dos_orillas():
     """
-    Lo que decide la tecnica es el ANCHO del trazo, no el tamano de la figura.
+    Un anillo -el borde de un escudo, el marco de una cinta- no se rellena ni
+    se descompone en trazos: se cose como UNA columna satin entre su contorno
+    exterior y su hueco, que es como lo hace la industria.
 
-    El borde de un escudo de 15 cm es un trazo de milimetro y medio: no es una
-    superficie que rellenar. `satin_de_region` tampoco sirve, porque parte el
-    contorno en dos lados largos con un doble barrido y en un ANILLO ese
-    reparto no existe: la costura salia a trozos.
+    Por el camino del eje medial salia partido en unos 160 tramos, y cada
+    union dejaba una muesca: el borde se veia punteado.
     """
     from bordado.geometria import circulo
     anillo = _describir(0, circulo((0, 0), 60, 200), [circulo((0, 0), 58.5, 200)])
     assert anillo.grosor_mm < 3.5
-    assert elegir_tecnica(anillo) == "letra"
+    assert elegir_tecnica(anillo) == "contorno"
+
+
+def test_un_contorno_finisimo_sigue_siendo_contorno():
+    """
+    Un anillo es un anillo aunque sea finisimo, y sus dos rieles son exactos.
+    Estaba comprobandose DESPUES del filtro de grosor, asi que el borde de un
+    escudo a 80 mm -0.7 mm- se iba por el eje medial y volvia a salir
+    punteado.
+    """
+    from bordado.geometria import circulo
+    fino = _describir(0, circulo((0, 0), 30, 200), [circulo((0, 0), 29.6, 200)])
+    assert fino.grosor_mm < 0.9
+    assert elegir_tecnica(fino) == "contorno"
+
+
+def test_un_disco_con_un_agujerito_no_es_un_contorno():
+    """El hueco tiene que acompanar al exterior en todo el recorrido."""
+    from bordado.geometria import circulo
+    disco = _describir(0, circulo((0, 0), 30, 120), [circulo((0, 0), 2, 40)])
+    assert elegir_tecnica(disco) != "contorno"
 
 
 def test_una_superficie_ancha_se_sigue_rellenando():

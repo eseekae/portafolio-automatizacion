@@ -15,8 +15,8 @@ from __future__ import annotations
 import math
 
 from .geometria import (
-    Polilinea, Punto, centroide, cruces_scanline_anillos, desplazar_contorno,
-    longitud, remuestrear, rotar,
+    Polilinea, Punto, area_shoelace, centroide, cruces_scanline_anillos,
+    desplazar_contorno, longitud, remuestrear, rotar,
 )
 from .parametros import ParamRecta, ParamRelleno, ParamSatin
 
@@ -260,6 +260,68 @@ def _repartir(linea: Polilinea, n: int) -> Polilinea:
         (x1, y1), (x2, y2) = linea[j], linea[j + 1]
         salida.append((x1 + (x2 - x1) * t, y1 + (y2 - y1) * t))
     return salida
+
+
+def satin_de_anillo(exterior: Polilinea, hueco: Polilinea, p: ParamSatin,
+                    ancho_minimo_mm: float = 0.0) -> list[Polilinea]:
+    """
+    Borde satin de un ANILLO, cosido entre sus dos orillas.
+
+    Es como la industria borda un contorno: una columna satin necesita dos
+    rieles, y en un anillo -el borde de un escudo, el marco de una cinta- los
+    dos rieles YA existen. Son el contorno exterior y el hueco. No hay que
+    calcular nada intermedio.
+
+    POR QUE ESTO Y NO EL EJE MEDIAL
+        El eje medial se obtiene adelgazando la figura, y ese adelgazado
+        inventa una bifurcacion en cada irregularidad del borde. Un contorno
+        de 15 cm salia partido en unos 160 tramos, y como cada tramo es una
+        columna con su principio y su final, el borde quedaba con una muesca
+        en cada union. Aqui no hay tramos: es UNA sola columna que da la
+        vuelta completa, asi que no puede tener muescas.
+
+    LO UNICO DELICADO ES EMPAREJAR LOS DOS ANILLOS
+        Hay que recorrerlos en el mismo sentido y empezar en puntos que se
+        correspondan. Si no, la columna cruza la figura en diagonal y sale un
+        ovillo. Se resuelve orientando los dos igual y rotando el hueco para
+        que arranque en su punto mas cercano al arranque del exterior.
+    """
+    if len(exterior) < 3 or len(hueco) < 3:
+        return []
+
+    a = list(exterior)
+    b = list(hueco)
+    # 1. Mismo sentido de giro: el hueco suele venir al reves.
+    if (area_shoelace(a) >= 0) != (area_shoelace(b) >= 0):
+        b = b[::-1]
+    # 2. Mismo punto de partida.
+    k = min(range(len(b)), key=lambda i: math.dist(b[i], a[0]))
+    b = b[k:] + b[:k]
+
+    # 3. Se reparten los dos por igual, cerrados, y se emparejan uno a uno.
+    L = (longitud(a, cerrada=True) + longitud(b, cerrada=True)) / 2.0
+    n = max(4, int(L / max(p.densidad_mm, 0.05)))
+    ra = _repartir(a + [a[0]], n + 1)
+    rb = _repartir(b + [b[0]], n + 1)
+
+    zig: Polilinea = []
+    for i in range(n + 1):
+        ax, ay = ra[i]
+        bx, by = rb[i]
+        dx, dy = bx - ax, by - ay
+        d = math.hypot(dx, dy) or 1.0
+        ux, uy = dx / d, dy / d
+        # Se separa lo justo para que la puntada no caiga bajo el minimo de
+        # la maquina. Es la misma pull compensation de siempre: el hilo tiene
+        # grosor propio y cubre algo mas que la linea dibujada. Sin esto, un
+        # contorno de medio milimetro no se coseria: el filtro de puntadas
+        # cortas se lo llevaria entero.
+        c = p.compensacion_mm + max(0.0, (ancho_minimo_mm - d) / 2.0)
+        # SIEMPRE en el orden a,b: alternarlo dejaria dos penetraciones
+        # seguidas en el mismo riel, separadas solo por el avance.
+        zig.append((ax - ux * c, ay - uy * c))
+        zig.append((bx + ux * c, by + uy * c))
+    return [zig]
 
 
 def satin_por_eje(eje: Polilinea, semianchos: list[float], p: ParamSatin,
