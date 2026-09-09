@@ -134,7 +134,26 @@ def dialogos(monkeypatch):
 
 @pytest.fixture
 def ventana(entorno_grafico):
-    raiz = tk.Tk()
+    """
+    Abre la ventana raiz, con la sonda de sesion ya pasada.
+
+    Aun asi se vuelve a atrapar `TclError`: la sonda se corre UNA vez por
+    sesion y el entorno puede romperse despues. Paso en un runner de Windows,
+    donde a mitad de la corrida el propio Tk del interprete dejo de encontrar
+    su `ttk.tcl`:
+
+        _tkinter.TclError: Can't find a usable tk.tcl ...
+        couldn't read file ".../tk8.6/ttk/ttk.tcl": no such file or directory
+
+    Eso no es un fallo del programa —ningun codigo nuestro corrio todavia—,
+    es la instalacion de Tk del runner. Sin esto, un Tk roto se reporta como
+    ERROR y tumba el build; con esto se salta con el motivo a la vista, que
+    es lo que este archivo promete desde su docstring.
+    """
+    try:
+        raiz = tk.Tk()
+    except tk.TclError as e:            # noqa: PERF203
+        pytest.skip(f"Tk dejo de estar utilizable a mitad de la corrida: {e}")
     raiz.withdraw()
     yield raiz
     raiz.destroy()
