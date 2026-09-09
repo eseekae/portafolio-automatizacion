@@ -1,0 +1,625 @@
+<title>La Soñadora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ink:#131C33;
+  --ink-2:#2A3552;
+  --slate:#5D6883;
+  --slate-2:#8B93A8;
+  --paper:#EDF0F5;
+  --surface:#FFFFFF;
+  --surface-2:#E4E9F1;
+  --line:#C9D2E0;
+  --line-soft:#DDE3EC;
+  --amber:#C4711A;
+  --amber-soft:#F5E3CC;
+  --verde:#1B7554;
+  --verde-soft:#D6EADF;
+  --rojo:#A93B36;
+  --rojo-soft:#F2DAD8;
+
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#E8ECF5;
+    --ink-2:#C3CBDC;
+    --slate:#98A2BC;
+    --slate-2:#6E7893;
+    --paper:#0E1424;
+    --surface:#161E33;
+    --surface-2:#1E273F;
+    --line:#2E3A56;
+    --line-soft:#232D46;
+    --amber:#E8A24E;
+    --amber-soft:#3A2C17;
+    --verde:#4FBE8F;
+    --verde-soft:#132E24;
+    --rojo:#E07A73;
+    --rojo-soft:#33191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E8ECF5;
+  --ink-2:#C3CBDC;
+  --slate:#98A2BC;
+  --slate-2:#6E7893;
+  --paper:#0E1424;
+  --surface:#161E33;
+  --surface-2:#1E273F;
+  --line:#2E3A56;
+  --line-soft:#232D46;
+  --amber:#E8A24E;
+  --amber-soft:#3A2C17;
+  --verde:#4FBE8F;
+  --verde-soft:#132E24;
+  --rojo:#E07A73;
+  --rojo-soft:#33191A;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:17px;
+  line-height:1.62;
+  margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:0 20px 80px}
+.prose{max-width:64ch}
+
+h1,h2,h3,.disp{font-family:var(--f-display);font-weight:900;letter-spacing:-.02em;text-wrap:balance;margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.eyebrow{
+  font-family:var(--f-mono);font-size:.7rem;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--slate);
+}
+
+/* ---------- header ---------- */
+header{
+  border-bottom:3px solid var(--ink);
+  padding:44px 0 22px;
+  margin-bottom:8px;
+}
+.head-top{
+  display:flex;flex-wrap:wrap;gap:10px 18px;
+  align-items:baseline;justify-content:space-between;
+  margin-bottom:18px;
+}
+h1{font-size:clamp(2.6rem,8vw,4.4rem);line-height:.92;text-transform:uppercase}
+h1 .thin{display:block;font-weight:500;font-size:.4em;letter-spacing:.01em;text-transform:none;color:var(--slate);margin-top:14px}
+.stamp{
+  font-family:var(--f-mono);font-size:.72rem;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--amber);
+  border:1.5px solid var(--amber);border-radius:2px;padding:5px 10px;white-space:nowrap;
+}
+
+.aviso{
+  background:var(--surface);
+  border-left:4px solid var(--amber);
+  padding:16px 20px;
+  margin:26px 0 0;
+  font-size:.95rem;
+  color:var(--ink-2);
+}
+.aviso strong{font-family:var(--f-display);font-weight:800;color:var(--ink)}
+
+/* ---------- sections ---------- */
+section{margin-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.sec-head h2{font-size:clamp(1.5rem,4vw,2.1rem);text-transform:uppercase}
+.sec-head .rule{flex:1;height:2px;background:var(--line);align-self:center}
+.sec-sub{color:var(--slate);font-size:.98rem;margin:10px 0 26px;max-width:62ch}
+
+/* ---------- cartilla table ---------- */
+.tw{overflow-x:auto;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:660px;font-size:.9rem}
+thead th{
+  font-family:var(--f-mono);font-size:.66rem;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--slate);text-align:left;
+  padding:12px 14px;border-bottom:2px solid var(--line);background:var(--surface-2);
+  white-space:nowrap;
+}
+tbody td{padding:13px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+td.t-hora{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+td.t-hora small{display:block;font-weight:400;color:var(--slate-2);font-size:.78em;letter-spacing:.02em}
+td.t-match{font-family:var(--f-display);font-weight:700;font-size:.95rem;min-width:210px}
+td.t-match small{display:block;font-family:var(--f-body);font-weight:400;font-size:.82rem;color:var(--slate);margin-top:3px}
+td.t-odd{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+td.t-odd.fav{color:var(--verde);font-weight:600}
+.torneo{
+  display:inline-block;font-family:var(--f-mono);font-size:.62rem;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;padding:3px 7px;border-radius:2px;
+  background:var(--surface-2);color:var(--slate);white-space:nowrap;
+}
+
+/* ---------- picks ---------- */
+.picks{display:flex;flex-direction:column;gap:20px}
+.pick{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-top:4px solid var(--verde);
+  padding:24px 24px 22px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:6px 22px;
+}
+.pick.tier-b{border-top-color:var(--amber)}
+.pick.tier-c{border-top-color:var(--slate-2)}
+.pick.pass{border-top-color:var(--rojo);opacity:.94}
+
+.rank{
+  font-family:var(--f-display);font-weight:900;font-size:3.1rem;line-height:.8;
+  color:var(--line);letter-spacing:-.05em;grid-row:1 / span 4;
+  font-variant-numeric:tabular-nums;
+}
+.pick.tier-a .rank{color:var(--verde)}
+
+.pick-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;justify-content:space-between}
+.pick-bet{font-family:var(--f-display);font-weight:800;font-size:1.22rem;line-height:1.25;letter-spacing:-.01em}
+.cuota{
+  font-family:var(--f-mono);font-weight:600;font-size:1.5rem;font-variant-numeric:tabular-nums;
+  color:var(--verde);white-space:nowrap;line-height:1;
+}
+.pick.tier-b .cuota{color:var(--amber)}
+.pick.tier-c .cuota,.pick.pass .cuota{color:var(--slate)}
+.pick-meta{
+  font-family:var(--f-mono);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--slate);margin:4px 0 12px;
+}
+.pick-body p{margin:0 0 12px;font-size:.97rem;color:var(--ink-2);max-width:62ch}
+.pick-body p:last-child{margin-bottom:0}
+
+.riesgo{
+  border-left:3px solid var(--rojo);
+  background:var(--rojo-soft);
+  padding:10px 14px;font-size:.9rem;color:var(--ink-2);margin-top:14px;
+}
+.riesgo b{font-family:var(--f-display);font-weight:800;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--rojo);display:block;margin-bottom:3px}
+
+/* value meter */
+.meter{margin:16px 0 4px;max-width:400px}
+.meter-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.meter-lab{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);width:88px;flex:none}
+.meter-bar{flex:1;height:9px;background:var(--surface-2);position:relative;overflow:hidden}
+.meter-fill{position:absolute;inset:0 auto 0 0;background:var(--slate-2)}
+.meter-fill.est{background:var(--verde)}
+.meter-val{font-family:var(--f-mono);font-size:.75rem;font-weight:600;font-variant-numeric:tabular-nums;width:44px;text-align:right;flex:none;color:var(--ink-2)}
+
+/* ---------- boletos ---------- */
+.boletos{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.boleto{
+  position:relative;
+  background:var(--surface);
+  padding:22px 22px 30px;
+  box-shadow:inset 0 0 0 1px var(--line);
+  -webkit-mask:
+    radial-gradient(circle at 7px 0, transparent 6px, #000 6.5px) bottom left / 14px 12px repeat-x,
+    linear-gradient(#000,#000) top left / 100% calc(100% - 11px) no-repeat;
+  mask:
+    radial-gradient(circle at 7px 0, transparent 6px, #000 6.5px) bottom left / 14px 12px repeat-x,
+    linear-gradient(#000,#000) top left / 100% calc(100% - 11px) no-repeat;
+}
+.bol-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-bottom:2px solid var(--ink);padding-bottom:9px;margin-bottom:16px}
+.bol-name{font-family:var(--f-display);font-weight:900;font-size:1.05rem;text-transform:uppercase;letter-spacing:-.01em}
+.bol-folio{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.1em;color:var(--slate-2);white-space:nowrap}
+.legs{list-style:none;margin:0;padding:0}
+.legs li{
+  display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  padding:9px 0;border-bottom:1px dotted var(--line);font-size:.9rem;
+}
+.legs li:last-child{border-bottom:none}
+.leg-txt{color:var(--ink-2)}
+.leg-txt em{display:block;font-style:normal;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--slate-2);margin-top:2px}
+.leg-odd{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+.bol-total{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:2px dashed var(--line);margin-top:14px;padding-top:14px}
+.bol-total .lab{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+.bol-total .big{font-family:var(--f-mono);font-weight:600;font-size:2rem;font-variant-numeric:tabular-nums;line-height:1;color:var(--amber)}
+.bol-stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+.bstat .k{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;color:var(--slate-2);display:block}
+.bstat .v{font-family:var(--f-mono);font-weight:600;font-size:.95rem;font-variant-numeric:tabular-nums;color:var(--ink)}
+.veredicto{margin-top:15px;font-size:.88rem;color:var(--ink-2);line-height:1.5}
+.veredicto b{font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:.68rem;display:block;margin-bottom:4px}
+.veredicto.ok b{color:var(--verde)}
+.veredicto.mid b{color:var(--amber)}
+.veredicto.bad b{color:var(--rojo)}
+.bstat .v.ok-v{color:var(--verde)}
+.bstat .v.bad-v{color:var(--rojo)}
+.mg-list .p.ok-v{color:var(--verde)}
+.mg-list .b i.g{background:var(--verde)}
+
+/* ---------- margen ---------- */
+.margen{background:var(--surface);border:1px solid var(--line);padding:26px 26px 22px}
+.mg-list{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:11px}
+.mg-list li{display:grid;grid-template-columns:78px 1fr 62px;align-items:center;gap:14px}
+.mg-list .n{font-family:var(--f-mono);font-size:.76rem;font-weight:600;color:var(--ink-2);letter-spacing:.04em}
+.mg-list .b{height:14px;background:var(--surface-2);position:relative;overflow:hidden}
+.mg-list .b i{position:absolute;inset:0 auto 0 0;background:var(--rojo);display:block}
+.mg-list .p{font-family:var(--f-mono);font-size:.82rem;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;color:var(--rojo)}
+.punch{
+  font-family:var(--f-display);font-weight:800;font-size:1.12rem;line-height:1.4;
+  letter-spacing:-.01em;margin-top:24px;padding-top:20px;border-top:2px solid var(--line);
+  max-width:56ch;
+}
+
+/* ---------- banca ---------- */
+.banca{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2px;background:var(--line);border:1px solid var(--line)}
+.banca li{background:var(--surface);padding:20px}
+.banca .k{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:7px}
+.banca .t{font-size:.93rem;color:var(--ink-2);line-height:1.5}
+
+footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--line);font-size:.84rem;color:var(--slate)}
+footer a{color:var(--slate);text-decoration:underline;text-underline-offset:2px}
+footer a:hover,footer a:focus-visible{color:var(--amber)}
+footer ul{margin:10px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+@media (max-width:620px){
+  body{font-size:16px}
+  .pick{grid-template-columns:1fr;padding:20px}
+  .rank{grid-row:auto;font-size:2.2rem;margin-bottom:2px}
+  .mg-list li{grid-template-columns:70px 1fr 54px;gap:10px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style><style>
+/* --- específico de esta página --- */
+.call{
+  background:var(--surface);border:1px solid var(--line);border-top:5px solid var(--verde);
+  padding:30px 30px 26px;margin-top:26px;
+}
+.call .k{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.13em;text-transform:uppercase;color:var(--verde);display:block;margin-bottom:12px}
+.call .bet{font-family:var(--f-display);font-weight:900;font-size:clamp(1.5rem,4.4vw,2.2rem);line-height:1.1;letter-spacing:-.02em;text-wrap:balance}
+.call .row{display:flex;flex-wrap:wrap;gap:26px;margin:22px 0 20px;padding:18px 0;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+.call .st .kk{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-2);display:block;margin-bottom:4px}
+.call .st .vv{font-family:var(--f-mono);font-weight:600;font-size:1.35rem;font-variant-numeric:tabular-nums;color:var(--ink)}
+.call .st .vv.hi{color:var(--verde)}
+.call p{margin:0 0 12px;color:var(--ink-2);font-size:.98rem;max-width:64ch}
+.call p:last-child{margin-bottom:0}
+
+figure.chart{margin:0;background:var(--surface);border:1px solid var(--line);padding:24px 20px 18px}
+figure.chart figcaption{font-family:var(--f-display);font-weight:800;font-size:1.02rem;letter-spacing:-.01em;margin-bottom:3px}
+figure.chart .sub{font-size:.88rem;color:var(--slate);margin-bottom:18px;max-width:62ch}
+.chart-wrap{position:relative;overflow-x:auto}
+svg.plot{display:block;width:100%;min-width:520px;height:auto;overflow:visible}
+.grid-l{stroke:var(--line-soft);stroke-width:1}
+.axis-l{stroke:var(--line);stroke-width:1}
+.tick-t{fill:var(--slate-2);font-family:var(--f-mono);font-size:11px}
+.axis-t{fill:var(--slate);font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+.band{fill:var(--verde);opacity:.07}
+.band-t{fill:var(--verde);font-family:var(--f-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
+.curve{fill:none;stroke:var(--amber);stroke-width:2.5;stroke-linecap:round}
+.dot{fill:var(--amber);stroke:var(--surface);stroke-width:2}
+.dot.key{fill:var(--verde)}
+.dot-l{fill:var(--ink);font-family:var(--f-display);font-weight:700;font-size:11.5px}
+.dot-s{fill:var(--slate);font-family:var(--f-mono);font-size:10.5px}
+.cross{stroke:var(--slate-2);stroke-width:1;stroke-dasharray:3 3;opacity:0}
+.hitbox{fill:transparent;cursor:crosshair}
+.tip{
+  position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;
+  background:var(--ink);color:var(--paper);padding:7px 10px;border-radius:3px;
+  font-family:var(--f-mono);font-size:.74rem;line-height:1.45;white-space:nowrap;
+  transform:translate(-50%,-130%);z-index:5;
+}
+.tip b{color:var(--amber);font-weight:600}
+@media (prefers-reduced-motion:reduce){.tip{transition:none}}
+
+.esc{overflow-x:auto;border:1px solid var(--line);background:var(--surface);margin-top:22px}
+table.esc-t{border-collapse:collapse;width:100%;min-width:680px;font-size:.88rem}
+table.esc-t thead th{font-family:var(--f-mono);font-size:.64rem;font-weight:600;letter-spacing:.11em;text-transform:uppercase;color:var(--slate);text-align:right;padding:12px 13px;border-bottom:2px solid var(--line);background:var(--surface-2);white-space:nowrap}
+table.esc-t thead th:first-child,table.esc-t thead th:nth-child(2){text-align:left}
+table.esc-t td{padding:12px 13px;border-bottom:1px solid var(--line-soft);text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.esc-t tr:last-child td{border-bottom:none}
+table.esc-t td.n{text-align:left;font-family:var(--f-display);font-weight:800;font-size:.92rem}
+table.esc-t td.leg{text-align:left;font-family:var(--f-body);font-size:.86rem;color:var(--ink-2);white-space:normal;min-width:210px}
+table.esc-t td.pay{font-weight:600;color:var(--verde)}
+table.esc-t tr.dream td{background:var(--amber-soft)}
+table.esc-t tr.dream td.pay{color:var(--amber)}
+.ret-cell{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.ret-bar{width:52px;height:8px;background:var(--surface-2);position:relative;flex:none}
+.ret-bar i{position:absolute;inset:0 auto 0 0;background:var(--verde)}
+
+.loto{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--line);border:1px solid var(--line);margin-top:22px}
+.loto>div{background:var(--surface);padding:22px}
+.loto .k{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.11em;text-transform:uppercase;color:var(--slate);display:block;margin-bottom:9px}
+.loto .big{font-family:var(--f-mono);font-weight:600;font-size:clamp(1.3rem,3.6vw,1.9rem);font-variant-numeric:tabular-nums;line-height:1;color:var(--ink);display:block;margin-bottom:7px}
+.loto .t{font-size:.86rem;color:var(--slate)}
+@media (max-width:520px){.loto{grid-template-columns:1fr}}
+
+.flip{background:var(--surface);border-left:4px solid var(--rojo);padding:20px 22px;margin-top:22px}
+.flip b{font-family:var(--f-display);font-weight:800;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--rojo);display:block;margin-bottom:8px}
+.flip p{margin:0 0 11px;font-size:.95rem;color:var(--ink-2);max-width:64ch}
+.flip p:last-child{margin-bottom:0}
+.tesis{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--amber);padding:28px 28px 24px}
+.tesis h3{font-family:var(--f-display);font-weight:900;font-size:1.3rem;text-transform:uppercase;letter-spacing:-.01em;margin-bottom:14px}
+.tesis p{margin:0 0 13px;color:var(--ink-2);font-size:.98rem;max-width:64ch}
+.tesis p:last-child{margin-bottom:0}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="head-top">
+    <span class="eyebrow">Miércoles 9 de septiembre de 2026 &middot; Horarios de Chile</span>
+    <span class="stamp">Análisis independiente</span>
+  </div>
+  <h1>La Soñadora
+    <span class="thin">Qué hacer con una luca gratis en una noche de Champions fecha 1 — y por qué, esta vez, irse a la cuota alta sí es lo correcto.</span>
+  </h1>
+</header>
+
+<div class="aviso">
+  <strong>Lee esto antes.</strong> Cuotas de comparadores públicos, no del sitio de Betano — este entorno tiene bloqueado el acceso directo. Se mueven durante el día: <strong>verifica cada precio en tu app.</strong> Y todo lo de abajo asume que tu luca es una <strong>apuesta gratis con stake no devuelto</strong> (ganas la ganancia, no te devuelven los $1.000). Si en realidad es saldo en efectivo, la respuesta cambia — está al final de la página.
+</div>
+
+<section>
+  <div class="sec-head"><h2>La call</h2><span class="rule"></span></div>
+  <div class="call">
+    <span class="k">Si tienes que jugar una sola cosa</span>
+    <span class="bet">Feyenoord gana en el Camp Nou</span>
+    <div class="row">
+      <span class="st"><span class="kk">Cuota</span><span class="vv">29.00</span></span>
+      <span class="st"><span class="kk">Te paga</span><span class="vv hi">$28.000</span></span>
+      <span class="st"><span class="kk">Probabilidad</span><span class="vv">~3,4%</span></span>
+      <span class="st"><span class="kk">Valor que rescatas</span><span class="vv hi">90,8%</span></span>
+      <span class="st"><span class="kk">Hora</span><span class="vv">13:45</span></span>
+    </div>
+    <p><strong>Tu instinto de irte a la cuota alta es correcto, y no por corazonada.</strong> Con una apuesta gratis no arriesgas plata tuya, así que el cálculo se da vuelta: lo único que importa es cuánta ganancia esperada le sacas al papelito. Y eso crece con la cuota.</p>
+    <p>Una freebet jugada a cuota 1.50 convierte apenas un 31% de su valor nominal en valor esperado real — estás botando dos tercios del regalo. La misma luca a cuota 29 rescata un 91%. El gráfico de abajo muestra la curva completa.</p>
+    <p>Entre las cuotas gordas de hoy elijo Feyenoord por sobre Slovan (36) aunque pague menos: el Barcelona a 1.08 está impagablemente corto, el Feyenoord viene invicto en la Eredivisie y es rival de otra categoría comparado con lo que el Slovan puede hacer en el Parque de los Príncipes. Prácticamente el mismo valor rescatado, bastante más chance real.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Por qué la cuota alta</h2><span class="rule"></span></div>
+  <p class="sec-sub">Con plata propia, encadenar cuotas altas te destruye — eso lo vimos en las cartillas anteriores. Con una apuesta gratis pasa lo contrario, porque el stake que pierdes no es tuyo. Esta es la curva.</p>
+  <figure class="chart">
+    <figcaption>Cuánto del valor de la luca gratis rescatas, según la cuota</figcaption>
+    <p class="sub">Valor esperado como porcentaje de los $1.000 nominales. Sube rápido hasta cuota 10 y después se aplana: pasar de 10 a 40 te suma apenas 7 puntos. Pasa el cursor por la curva para ver cualquier cuota.</p>
+    <div class="chart-wrap">
+      <svg class="plot" viewBox="0 0 760 380" role="img" aria-label="Curva del valor rescatado de una apuesta gratis según la cuota: 31% a cuota 1.5, 47% a cuota 2, 85% a cuota 10, 91% a cuota 29.">
+        <g id="gGrid"></g>
+        <g id="gBand"></g>
+        <path id="curve" class="curve"></path>
+        <g id="gDots"></g>
+        <line id="cx" class="cross" y1="24" y2="334"></line>
+        <rect id="hit" class="hitbox" x="58" y="24" width="678" height="310"></rect>
+      </svg>
+      <div class="tip" id="tip"></div>
+    </div>
+  </figure>
+</section>
+
+<section>
+  <div class="sec-head"><h2>La escalera</h2><span class="rule"></span></div>
+  <p class="sec-sub">Ahora sí, la soñadora. Cada fila agrega una pata de caos a la anterior. Fíjate en las dos últimas columnas a la vez: lo que pagas en valor rescatado por cada escalón que subes, y lo que la probabilidad se derrumba.</p>
+  <div class="esc">
+    <table class="esc-t">
+      <thead>
+        <tr><th>Patas</th><th>Pata que agregas</th><th>Cuota</th><th>Te paga</th><th>1 en</th><th>Rescatas</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="n">1</td><td class="leg">Feyenoord gana en Camp Nou <span class="mono">29.0</span></td>
+          <td>29</td><td class="pay">$28.000</td><td>29</td>
+          <td><span class="ret-cell"><span class="ret-bar"><i style="width:91%"></i></span>90,8%</span></td>
+        </tr>
+        <tr>
+          <td class="n">2</td><td class="leg">Slovan gana en el Parque de los Príncipes <span class="mono">36.0</span></td>
+          <td>1.044</td><td class="pay">$1.043.000</td><td>1.044</td>
+          <td><span class="ret-cell"><span class="ret-bar"><i style="width:88%"></i></span>88,3%</span></td>
+        </tr>
+        <tr>
+          <td class="n">3</td><td class="leg">Viking gana en Stuttgart <span class="mono">11.0</span></td>
+          <td>11.484</td><td class="pay">$11.483.000</td><td>11.484</td>
+          <td><span class="ret-cell"><span class="ret-bar"><i style="width:83%"></i></span>83,1%</span></td>
+        </tr>
+        <tr>
+          <td class="n">4</td><td class="leg">LDU Quito gana en el Allianz Parque <span class="mono">12.0</span></td>
+          <td>137.808</td><td class="pay">$137.807.000</td><td>137.808</td>
+          <td><span class="ret-cell"><span class="ret-bar"><i style="width:78%"></i></span>78,1%</span></td>
+        </tr>
+        <tr>
+          <td class="n">5</td><td class="leg">Galatasaray gana en Lisboa <span class="mono">4.62</span></td>
+          <td>636.673</td><td class="pay">$636.671.960</td><td>636.673</td>
+          <td><span class="ret-cell"><span class="ret-bar"><i style="width:73%"></i></span>73,4%</span></td>
+        </tr>
+        <tr class="dream">
+          <td class="n">6</td><td class="leg">Atlético gana en Anfield <span class="mono">4.60</span></td>
+          <td>2.928.696</td><td class="pay">$2.928.694.615</td><td>2.928.696</td>
+          <td><span class="ret-cell"><span class="ret-bar"><i style="width:69%"></i></span>69,0%</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sec-sub" style="margin-top:20px">Esa última fila es tu jubilación literal: <strong>2.928 millones de pesos</strong> salidos de una luca que no pagaste. Y acá viene la parte honesta.</p>
+</section>
+
+<section>
+  <div class="sec-head"><h2>El reality check</h2><span class="rule"></span></div>
+  <p class="sec-sub">Puse la soñadora de 6 patas al lado del Loto para que veas exactamente en qué categoría estás jugando.</p>
+  <div class="loto">
+    <div>
+      <span class="k">Soñadora · 6 patas</span>
+      <span class="big">1 en 4.245.000</span>
+      <p class="t">Probabilidad real, ya descontado el margen que la casa mete en cada una de las seis cuotas. Paga ~$2.929 millones. Costo: $0.</p>
+    </div>
+    <div>
+      <span class="k">Loto 6/41</span>
+      <span class="big">1 en 4.496.388</span>
+      <p class="t">Las 4.496.388 combinaciones posibles del cartón. Pozo variable, del orden de miles de millones. Costo: el cartón.</p>
+    </div>
+  </div>
+  <div class="tesis" style="border-top-color:var(--verde);margin-top:22px">
+    <h3>Es un cartón de lotería, pero gratis</h3>
+    <p>Tu soñadora de 6 patas tiene <strong>casi exactamente las mismas probabilidades que ganarte el Loto</strong>, y paga en el mismo orden de magnitud. Eso no es un elogio a la soñadora: es la confirmación de en qué liga está jugando.</p>
+    <p>Pero hay una diferencia que sí importa y que juega a tu favor: <strong>el cartón del Loto lo pagas, esta luca no.</strong> Ese es todo el argumento, y es suficiente. Una apuesta gratis es el único contexto donde tirarse a una cuota de siete cifras no es un error matemático — porque el peor caso es volver exactamente a donde estabas.</p>
+    <p>Lo que no va a pasar es que te jubiles. No porque la soñadora sea mala, sino porque va a fallar: 4,2 millones a 1 significa que si jugaras una de estas todos los días, te tocaría cada once mil años. Trátala como lo que es, disfrútala los 90 minutos que dure, y no le pongas ni un peso propio encima.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>La cartelera</h2><span class="rule"></span></div>
+  <p class="sec-sub">Los seis partidos de Champions fecha 1 más la ida de cuartos de Libertadores. Las cuotas gordas están marcadas: son la materia prima de la soñadora.</p>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr><th>Hora</th><th>Partido</th><th>Torneo</th><th style="text-align:right">1</th><th style="text-align:right">X</th><th style="text-align:right">2</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="t-hora">13:45<small>16:45 UTC</small></td>
+          <td class="t-match">Barcelona — Feyenoord<small>Camp Nou</small></td>
+          <td><span class="torneo">UCL F1</span></td>
+          <td class="t-odd fav">1.08</td><td class="t-odd">~13.0</td><td class="t-odd" style="color:var(--amber);font-weight:600">29.0</td>
+        </tr>
+        <tr>
+          <td class="t-hora">13:45<small>16:45 UTC</small></td>
+          <td class="t-match">Stuttgart — Viking<small>MHPArena</small></td>
+          <td><span class="torneo">UCL F1</span></td>
+          <td class="t-odd fav">1.30</td><td class="t-odd">7.20</td><td class="t-odd" style="color:var(--amber);font-weight:600">11.0</td>
+        </tr>
+        <tr>
+          <td class="t-hora">16:00<small>19:00 UTC</small></td>
+          <td class="t-match">PSG — Slovan Bratislava<small>Parque de los Príncipes</small></td>
+          <td><span class="torneo">UCL F1</span></td>
+          <td class="t-odd fav">1.04</td><td class="t-odd">18.0</td><td class="t-odd" style="color:var(--amber);font-weight:600">36.0</td>
+        </tr>
+        <tr>
+          <td class="t-hora">16:00<small>19:00 UTC</small></td>
+          <td class="t-match">Liverpool — Atlético Madrid<small>Anfield</small></td>
+          <td><span class="torneo">UCL F1</span></td>
+          <td class="t-odd fav">1.70</td><td class="t-odd">4.10</td><td class="t-odd">4.60</td>
+        </tr>
+        <tr>
+          <td class="t-hora">16:00<small>19:00 UTC</small></td>
+          <td class="t-match">Napoli — Arsenal<small>Diego Armando Maradona</small></td>
+          <td><span class="torneo">UCL F1</span></td>
+          <td class="t-odd">5.50</td><td class="t-odd">3.80</td><td class="t-odd fav">1.78</td>
+        </tr>
+        <tr>
+          <td class="t-hora">16:00<small>19:00 UTC</small></td>
+          <td class="t-match">Sporting — Galatasaray<small>José Alvalade</small></td>
+          <td><span class="torneo">UCL F1</span></td>
+          <td class="t-odd fav">1.82</td><td class="t-odd">4.12</td><td class="t-odd">4.62</td>
+        </tr>
+        <tr>
+          <td class="t-hora">19:00<small>22:00 UTC</small></td>
+          <td class="t-match">Palmeiras — LDU Quito<small>Allianz Parque · Ida de cuartos</small></td>
+          <td><span class="torneo">Libertadores</span></td>
+          <td class="t-odd fav">1.25</td><td class="t-odd">5.00</td><td class="t-odd" style="color:var(--amber);font-weight:600">12.0</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Si la luca no es freebet</h2><span class="rule"></span></div>
+  <div class="flip">
+    <b>Todo lo anterior se cae</b>
+    <p>Revisa los términos del bono antes de jugar. Toda esta página vale solo si es una <strong>apuesta gratis con stake no devuelto</strong>. Si Betano en realidad te acreditó <strong>saldo en efectivo</strong> — plata que puedes retirar, o cuyo stake vuelve si ganas — entonces es plata tuya y vuelve la matemática de siempre: la cuota alta deja de darte ventaja y pasa a ser puro riesgo.</p>
+      <p>En ese caso la jugada es la de mejor valor de la noche, no la más gorda: <strong>Arsenal gana en Nápoles a 1.78</strong>. El Arsenal ganó la Community Shield al City y sus tres primeros partidos de Premier; el Napoli está 12º en la Serie A y viene de perder con Como y con el Inter. Un visitante en ese estado de forma contra un local en ese estado de crisis debería pagar bastante menos que 1.78.</p>
+  </div>
+</section>
+
+<footer>
+  <p>Tercera entrega de la serie, después de las cartillas del 25 y 26 de agosto. Análisis independiente elaborado a partir de cuotas públicas de comparadores y casas de análisis, recopiladas el 9 de septiembre de 2026. No está afiliado ni respaldado por Betano ni por ninguna casa de apuestas. La soñadora de esta página va a fallar: apuesta solo lo que puedas permitirte perder, y con una freebet eso significa exactamente cero pesos propios encima.</p>
+  <ul>
+    <li><a href="https://www.sportsgambler.com/betting-tips/football/barcelona-vs-feyenoord-prediction-lineups-odds-2026-09-09/">Sportsgambler — Barcelona vs Feyenoord</a></li>
+    <li><a href="https://www.sportytrader.com/en/betting-tips/psg-slovan-bratislava-371381/">Sportytrader — PSG vs Slovan Bratislava</a></li>
+    <li><a href="https://www.mightytips.com/football-predictions/vfb-stuttgart-vs-viking-prediction-09-09-2026/">MightyTips — Stuttgart vs Viking</a></li>
+    <li><a href="https://legalbet.uk/game-center/liverpool-atletico-madrid-09-09-2026/">Legalbet — Liverpool vs Atlético Madrid</a></li>
+    <li><a href="https://www.football365.com/match-preview/napoli-v-arsenal-prediction-preview">Football365 — Napoli vs Arsenal</a></li>
+    <li><a href="https://footballwhispers.com/blog/sporting-lisbon-vs-galatasaray-prediction-preview-09-09-2026/">Football Whispers — Sporting vs Galatasaray</a></li>
+    <li><a href="https://blog.codere.bet.ar/futbol/2026/09/palmeiras-vs-ldu-quito-analisis-previo-horarios-y-cuotas/">Codere — Palmeiras vs LDU Quito, cuotas y horario</a></li>
+    <li><a href="https://www.lanacion.com.ar/deportes/futbol/partidos-de-hoy-miercoles-9-de-septiembre-de-la-champions-league-horarios-y-donde-ver-en-tv-y-online-nid09092026/">La Nación — agenda de la fecha 1 de Champions</a></li>
+  </ul>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  var K=0.94, X0=1, X1=40, L=58, R=736, T=24, B=334;
+  function fx(o){ return L + (o-X0)/(X1-X0)*(R-L); }
+  function fy(v){ return B - v*(B-T); }
+  function val(o){ return K*(1-1/o); }
+  function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+  var NS="http://www.w3.org/2000/svg";
+  function el(n,a){ var e=document.createElementNS(NS,n); for(var k in a) e.setAttribute(k,a[k]); return e; }
+
+  // grilla + ejes
+  var g=document.getElementById("gGrid");
+  [0,.25,.5,.75,1].forEach(function(v){
+    g.appendChild(el("line",{class:"grid-l",x1:L,x2:R,y1:fy(v),y2:fy(v)}));
+    var t=el("text",{class:"tick-t",x:L-10,y:fy(v)+4,"text-anchor":"end"});
+    t.textContent=Math.round(v*100)+"%"; g.appendChild(t);
+  });
+  g.appendChild(el("line",{class:"axis-l",x1:L,x2:R,y1:B,y2:B}));
+  [1,5,10,20,30,40].forEach(function(o){
+    var t=el("text",{class:"tick-t",x:fx(o),y:B+20,"text-anchor":"middle"});
+    t.textContent=o; g.appendChild(t);
+  });
+  var ax=el("text",{class:"axis-t",x:(L+R)/2,y:B+42,"text-anchor":"middle"});
+  ax.textContent="Cuota de la apuesta"; g.appendChild(ax);
+
+  // banda "zona buena"
+  var b=document.getElementById("gBand");
+  b.appendChild(el("rect",{class:"band",x:fx(10),y:T,width:R-fx(10),height:B-T}));
+  var bt=el("text",{class:"band-t",x:fx(10)+10,y:B-14});
+  bt.textContent="Desde cuota 10 rescatas 85% o más"; b.appendChild(bt);
+
+  // curva
+  var d="";
+  for(var o=X0+0.02;o<=X1+0.0001;o+=0.02){ d+=(d?"L":"M")+fx(o).toFixed(2)+" "+fy(val(o)).toFixed(2)+" "; }
+  document.getElementById("curve").setAttribute("d",d.trim());
+
+  // puntos anotados
+  var pts=[
+    {o:1.5,  lab:'Cuota 1.50',  sub:'botas 2/3 del regalo', dx:8,  dy:20, key:false},
+    {o:2,    lab:'Cuota 2.00',  sub:'la mitad',             dx:8,  dy:22, key:false},
+    {o:10,   lab:'Cuota 10',    sub:'acá se aplana',        dx:-6, dy:-16,key:false},
+    {o:29,   lab:'Feyenoord 29',sub:'la call',              dx:-14,dy:-14,key:true}
+  ];
+  var gd=document.getElementById("gDots");
+  pts.forEach(function(p){
+    var x=fx(p.o), y=fy(val(p.o));
+    gd.appendChild(el("circle",{class:"dot"+(p.key?" key":""),cx:x,cy:y,r:p.key?6:4.5}));
+    var anchor=p.dx<0?"end":"start";
+    var t1=el("text",{class:"dot-l",x:x+p.dx,y:y+p.dy,"text-anchor":anchor});
+    t1.textContent=p.lab; gd.appendChild(t1);
+    var t2=el("text",{class:"dot-s",x:x+p.dx,y:y+p.dy+14,"text-anchor":anchor});
+    t2.textContent=Math.round(val(p.o)*100)+"% · "+p.sub; gd.appendChild(t2);
+  });
+
+  // hover
+  var hit=document.getElementById("hit"), cx=document.getElementById("cx"), tip=document.getElementById("tip");
+  var svg=hit.ownerSVGElement, wrap=tip.parentNode;
+  function move(ev){
+    var r=svg.getBoundingClientRect(), sc=760/r.width;
+    var px=(ev.clientX-r.left)*sc;
+    if(px<L||px>R){ leave(); return; }
+    var o=X0+(px-L)/(R-L)*(X1-X0); if(o<1.05) o=1.05;
+    var v=val(o);
+    cx.setAttribute("x1",fx(o)); cx.setAttribute("x2",fx(o)); cx.style.opacity=1;
+    tip.innerHTML="Cuota <b>"+o.toFixed(2)+"</b><br>Rescatas <b>"+(v*100).toFixed(1)+"%</b><br>Paga $"+Math.round((o-1)*1000).toLocaleString("es-CL");
+    tip.style.left=(fx(o)/sc)+"px";
+    tip.style.top=(fy(v)/sc)+"px";
+    tip.style.opacity=1;
+  }
+  function leave(){ cx.style.opacity=0; tip.style.opacity=0; }
+  hit.addEventListener("mousemove",move);
+  hit.addEventListener("mouseleave",leave);
+  hit.addEventListener("touchmove",function(e){ if(e.touches[0]) move(e.touches[0]); },{passive:true});
+  hit.addEventListener("touchend",leave);
+})();
+</script>
