@@ -7,8 +7,8 @@ sino que cada trazo corresponda de verdad a lo que hace la maquina:
 
   - que una puntada sea una puntada y un salto sea un salto,
   - que el corte de hilo quede anclado en el trazo correcto,
-  - que el eje Y quede dado vuelta (el bordado mira hacia arriba, el
-    lienzo del navegador hacia abajo),
+  - que el eje Y NO se toque: el patron ya viene en la convencion del
+    lienzo, y un simulador que endereza archivos torcidos no sirve,
   - y que el HTML sea autonomo, porque se manda por correo a gente que no
     tiene el programa instalado ni necesariamente internet.
 """
@@ -66,16 +66,20 @@ def test_los_trazos_van_encadenados():
     assert (a.x2, a.y2) == (b.x1, b.y1)
 
 
-def test_el_eje_y_queda_dado_vuelta():
+def test_el_simulador_no_cambia_el_eje_y():
     """
-    En el bordado Y crece hacia arriba; en el lienzo del navegador, hacia
-    abajo. Si no se invierte, la vista previa sale espejada y el diagnostico
-    apunta al lado equivocado de la tela.
+    El simulador dibuja lo que dice el archivo, tal cual.
+
+    Un patron ya viene con Y hacia abajo (la convencion de pyembroidery, ver
+    `patron._u`), que es la misma del lienzo del navegador. Si el simulador
+    volteara el eje por su cuenta, un archivo espejado se veria derecho y no
+    habria forma de detectarlo mirando: seria un simulador que miente. Es
+    exactamente el error que hubo aqui.
     """
     g = guionizar(construir([(pe.STITCH, 0, 0), (pe.STITCH, 0, 10)]))
     t = g.trazos[0]
     assert t.y1 == pytest.approx(0.0)
-    assert t.y2 == pytest.approx(-10.0)
+    assert t.y2 == pytest.approx(10.0)
 
 
 def test_las_medidas_estan_en_milimetros():
@@ -332,3 +336,72 @@ def test_ningun_trazo_se_sale_del_bastidor(patron_disco):
     ys = [v for t in g.trazos for v in (t.y1, t.y2)]
     assert max(xs) - min(xs) == pytest.approx(g.ancho_mm, abs=0.05)
     assert max(ys) - min(ys) == pytest.approx(g.alto_mm, abs=0.05)
+
+
+# ------------------------------------ que el archivo no salga espejado
+
+def test_lo_que_esta_arriba_en_el_diseno_queda_arriba_en_el_archivo(tmp_path):
+    """
+    Anti-regresion del error mas caro que tuvo este proyecto.
+
+    El dominio trabaja con Y hacia ARRIBA y pyembroidery con Y hacia ABAJO.
+    Durante seis versiones el signo no se cambiaba en ninguna parte, asi que
+    TODOS los archivos salieron espejados verticalmente. No se noto porque la
+    vista previa y el simulador aplicaban un volteo propio: en pantalla se veia
+    derecho y la maquina bordaba el diseno cabeza abajo.
+
+    Por eso este test no mira pantallas. Escribe un .jef de verdad, lo vuelve
+    a leer y comprueba en las coordenadas del archivo que la marca que estaba
+    arriba en el diseno sigue estando arriba.
+    """
+    import pyembroidery as pe
+    from bordado.geometria import circulo
+    from bordado.parametros import ParamGlobales, ParamRelleno
+    from bordado.patron import ConstructorPatron
+    from bordado.puntadas import relleno_tatami
+
+    # Marca chica ARRIBA y a la DERECHA; base ancha ABAJO y a la izquierda.
+    # Se separan tambien en X para poder distinguirlas sin ambiguedad.
+    marca = circulo((90, 90), 6, 40)
+    base = [(0, 0), (60, 0), (60, 20), (0, 20)]
+    c = ConstructorPatron(ParamGlobales())
+    c.agregar("marca", "#1B4F9C", relleno_tatami(marca, ParamRelleno()))
+    c.agregar("base", "#1B4F9C", relleno_tatami(base, ParamRelleno()))
+    patron = c.construir()
+
+    jef = tmp_path / "orientacion.jef"
+    pe.write(patron, str(jef))
+    leido = pe.read(str(jef)).get_normalized_pattern()
+
+    # En pyembroidery Y crece hacia ABAJO: lo de arriba tiene la Y mas chica.
+    x_corte = 70 * 10          # a la derecha de la base, dentro de la marca
+    xs_marca = [(x, y) for x, y, _ in leido.stitches if x >= x_corte]
+    assert xs_marca, "no se encontro la marca en el archivo releido"
+    y_marca = sum(y for _, y in xs_marca) / len(xs_marca)
+    y_todo = [y for _, y, _ in leido.stitches]
+    medio = (min(y_todo) + max(y_todo)) / 2
+    assert y_marca < medio, (
+        "la marca que estaba ARRIBA en el diseno quedo ABAJO en el archivo: "
+        "el diseno sale espejado y la maquina lo borda cabeza abajo")
+
+
+def test_el_guion_pone_arriba_lo_que_esta_arriba_en_el_archivo(tmp_path):
+    """La misma comprobacion, ya en coordenadas de lienzo."""
+    import pyembroidery as pe
+    from bordado.geometria import circulo
+    from bordado.parametros import ParamGlobales, ParamRelleno
+    from bordado.patron import ConstructorPatron
+    from bordado.puntadas import relleno_tatami
+
+    c = ConstructorPatron(ParamGlobales())
+    c.agregar("marca", "#1B4F9C",
+              relleno_tatami(circulo((90, 90), 6, 40), ParamRelleno()))
+    c.agregar("base", "#1B4F9C",
+              relleno_tatami([(0, 0), (60, 0), (60, 20), (0, 20)], ParamRelleno()))
+    g = guionizar(c.construir())
+
+    de_la_marca = [t for t in g.trazos
+                   if t.tipo == "puntada" and t.x1 >= 70]
+    assert de_la_marca
+    y_marca = sum(t.y1 for t in de_la_marca) / len(de_la_marca)
+    assert y_marca < g.alto_mm / 2, "la marca de arriba se dibuja abajo"

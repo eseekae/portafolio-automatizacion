@@ -145,8 +145,31 @@ class ConstructorPatron:
     # ----------------------------------------------------------------------
 
     def _u(self, p: tuple[float, float]) -> tuple[float, float]:
-        """mm -> unidades de maquina (1/10 mm)."""
-        return p[0] * UNIDADES_POR_MM, p[1] * UNIDADES_POR_MM
+        """
+        mm -> unidades de maquina (1/10 mm), INVIRTIENDO el eje Y.
+
+        Aqui se cruza la unica frontera de convencion del proyecto y hay que
+        cruzarla bien, porque equivocarse no se ve en pantalla: se ve en la
+        tela, con el diseno cabeza abajo.
+
+        El dominio (geometria.py, puntadas.py, los disenos) trabaja con Y
+        hacia ARRIBA, como en matematicas: es lo natural para calcular
+        angulos, normales y barridos.
+
+        pyembroidery trabaja internamente con Y hacia ABAJO, como una imagen.
+        No es una eleccion nuestra ni es discutible, se comprueba en su
+        propio codigo: JefWriter escribe `-dy` al volcar al archivo (el
+        formato JEF si usa Y hacia arriba, y por eso lo niega), y PngWriter
+        dibuja la fila `y - min_y`, o sea Y hacia abajo.
+
+        Por eso el signo se cambia AQUI, una sola vez. Antes no se cambiaba
+        en ninguna parte y los archivos salian espejados verticalmente; la
+        vista previa y el simulador lo compensaban con un volteo propio, asi
+        que en pantalla todo parecia correcto mientras la maquina bordaba el
+        diseno al reves. Ese volteo de cortesia ya no existe en ningun lado:
+        ahora el archivo es la verdad y todos lo leen tal cual.
+        """
+        return p[0] * UNIDADES_POR_MM, -p[1] * UNIDADES_POR_MM
 
     def _filtrar_cortas(self, corrida: Polilinea) -> Polilinea:
         """

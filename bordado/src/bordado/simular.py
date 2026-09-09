@@ -95,8 +95,11 @@ def guionizar(patron: pe.EmbPattern, salto_largo_mm: float = 12.0) -> Guion:
     aguja = None        # ultima posicion fisica
     for x, y, cmd in norm.stitches:
         base = cmd & pe.COMMAND_MASK
-        # El eje Y del bordado va hacia arriba; el del lienzo, hacia abajo.
-        px, py = x / UNIDADES_POR_MM, -y / UNIDADES_POR_MM
+        # Sin cambio de signo: el patron ya viene con Y hacia abajo, igual que
+        # el lienzo del navegador (ver patron._u). Este modulo dibuja lo que
+        # dice el archivo; si el archivo esta al reves, se tiene que ver al
+        # reves, que para eso es un simulador.
+        px, py = x / UNIDADES_POR_MM, y / UNIDADES_POR_MM
         if base == pe.STITCH:
             if previo is not None:
                 d = math.dist(previo, (px, py))
@@ -173,6 +176,7 @@ _PLANTILLA = r"""<!doctype html>
  label{display:flex;gap:6px;align-items:center;font-size:13px;padding:2px 0;cursor:pointer}
  .hilo{display:flex;gap:8px;align-items:center;padding:3px 0}
  .muestra{width:16px;height:16px;border-radius:3px;border:1px solid #0002;flex:none}
+ .pie{color:var(--suave);font-size:12px;margin-top:6px;text-align:center}
  .aviso{color:#B3261E}
  .ok{color:#1B7F3B}
 </style></head><body>
@@ -186,6 +190,7 @@ _PLANTILLA = r"""<!doctype html>
    <button id="play" class="primario">Reproducir</button>
    <button id="reinicio">Reiniciar</button>
    <button id="fin">Ir al final</button>
+   <button id="ajustar">Ajustar a la pantalla</button>
    <label>Velocidad
     <select id="vel">
      <option value="0.25">lenta</option><option value="1" selected>normal</option>
@@ -194,6 +199,8 @@ _PLANTILLA = r"""<!doctype html>
   </div>
   <input type="range" id="barra" min="0" value="0" step="1">
   <canvas id="lienzo"></canvas>
+  <div class="pie">Rueda del raton o pellizco para acercar · arrastra para mover
+   · <b id="zoom">100%</b></div>
  </div>
  <aside>
   <div class="caja"><h2>Avance</h2>
@@ -215,18 +222,43 @@ const D = __DATOS__;
 const T = D.trazos, N = T.length;
 const cv = document.getElementById('lienzo'), cx = cv.getContext('2d');
 const $ = id => document.getElementById(id);
-let i = 0, tocando = false, escala = 1, margen = 12;
+let i = 0, tocando = false, margen = 12;
+// Encuadre: `base` es la escala que hace caber el diseno entero; `zoom` es lo
+// que el usuario acerca encima; `dx`/`dy` es el arrastre, en pixeles de lienzo.
+let base = 1, zoom = 1, dx = 0, dy = 0;
+const DPR = () => devicePixelRatio || 1;
+const escalaAct = () => base * zoom;
 
 function medir(){
-  const ancho = cv.parentElement.clientWidth - 20;
+  // El lienzo se dimensiona contra el hueco que queda EN PANTALLA, no solo
+  // contra el ancho del contenedor. Si solo se mira el ancho, un diseno alto
+  // (una insignia, un escudo) sale mas largo que la ventana y hay que
+  // scrollear para verlo entero, que es justo lo que no sirve cuando lo que
+  // se busca es una vision de conjunto.
+  const caja = cv.parentElement.getBoundingClientRect();
+  const ancho = Math.max(280, caja.width - 20);
+  // Lo que sobra de alto hasta el borde de la ventana, con un respiro para el
+  // pie y para que en el telefono se vea que la pagina sigue.
+  const disponible = Math.max(240, innerHeight - cv.getBoundingClientRect().top - 70);
   const rel = D.alto / Math.max(D.ancho, 1e-6);
-  cv.width = Math.max(320, ancho) * devicePixelRatio;
-  cv.height = (Math.max(320, ancho) * rel + margen * 2) * devicePixelRatio;
-  cv.style.height = (cv.height / devicePixelRatio) + 'px';
-  escala = (cv.width - margen * 2 * devicePixelRatio) / Math.max(D.ancho, 1e-6);
+  const alto = Math.min(ancho * rel + margen * 2, disponible);
+  const dpr = DPR();
+  cv.width = ancho * dpr;
+  cv.height = alto * dpr;
+  cv.style.width = ancho + 'px';
+  cv.style.height = alto + 'px';
+  base = Math.min((cv.width - 2 * margen * dpr) / Math.max(D.ancho, 1e-6),
+                  (cv.height - 2 * margen * dpr) / Math.max(D.alto, 1e-6));
 }
-const X = v => margen * devicePixelRatio + (v - D.x0) * escala;
-const Y = v => margen * devicePixelRatio + (v + D.y0 + D.alto) * escala;
+
+function ajustar(){ zoom = 1; dx = dy = 0; medir(); mostrarZoom(); }
+function mostrarZoom(){ $('zoom').textContent = Math.round(zoom * 100) + '%'; }
+
+// El diseno va centrado en el lienzo: asi al alejar no queda pegado a un borde.
+const centroX = () => (cv.width - D.ancho * escalaAct()) / 2 + dx;
+const centroY = () => (cv.height - D.alto * escalaAct()) / 2 + dy;
+const X = v => centroX() + (v - D.x0) * escalaAct();
+const Y = v => centroY() + (v - D.y0) * escalaAct();
 
 function pintar(){
   cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
@@ -239,31 +271,31 @@ function pintar(){
       if (!saltos) continue;
       cx.strokeStyle = t[6] ? '#E8590C' : '#bbb';
       cx.setLineDash(t[6] ? [6,4] : [3,4]);
-      cx.lineWidth = Math.max(1, devicePixelRatio);
+      cx.lineWidth = Math.max(1, DPR());
     } else {
       cx.strokeStyle = D.colores[t[5]] || '#333';
       cx.setLineDash([]);
-      cx.lineWidth = Math.max(1.4, 0.42 * escala);
+      cx.lineWidth = Math.max(1.4, 0.42 * escalaAct());
     }
     cx.beginPath(); cx.moveTo(X(t[0]), Y(t[1])); cx.lineTo(X(t[2]), Y(t[3])); cx.stroke();
     if (avisos && t[6] && t[4] === 0){
       cx.setLineDash([]); cx.fillStyle = '#B3261E';
-      cx.beginPath(); cx.arc(X(t[2]), Y(t[3]), 2.4 * devicePixelRatio, 0, 7); cx.fill();
+      cx.beginPath(); cx.arc(X(t[2]), Y(t[3]), 2.4 * DPR(), 0, 7); cx.fill();
     }
   }
   cx.setLineDash([]);
   if (cortes) for (const c of D.cortes){
     if (c > i || c >= N) continue;
     const t = T[Math.max(c - 1, 0)];
-    cx.strokeStyle = '#B3261E'; cx.lineWidth = 1.6 * devicePixelRatio;
-    const x = X(t[2]), y = Y(t[3]), r = 3.4 * devicePixelRatio;
+    cx.strokeStyle = '#B3261E'; cx.lineWidth = 1.6 * DPR();
+    const x = X(t[2]), y = Y(t[3]), r = 3.4 * DPR();
     cx.beginPath(); cx.moveTo(x-r,y-r); cx.lineTo(x+r,y+r);
     cx.moveTo(x+r,y-r); cx.lineTo(x-r,y+r); cx.stroke();
   }
   if (i > 0 && i <= N){                    // posicion actual de la aguja
     const t = T[i-1];
-    cx.strokeStyle = '#111'; cx.lineWidth = 1.6 * devicePixelRatio;
-    cx.beginPath(); cx.arc(X(t[2]), Y(t[3]), 4.5 * devicePixelRatio, 0, 7); cx.stroke();
+    cx.strokeStyle = '#111'; cx.lineWidth = 1.6 * DPR();
+    cx.beginPath(); cx.arc(X(t[2]), Y(t[3]), 4.5 * DPR(), 0, 7); cx.stroke();
   }
 }
 
@@ -303,7 +335,64 @@ $('fin').onclick = () => { i = N; tocando = false;
   $('play').textContent = 'Reproducir'; pintar(); estado(); };
 $('barra').oninput = e => { i = +e.target.value; pintar(); estado(); };
 for (const id of ['vsaltos','vavisos','vcortes']) $(id).onchange = pintar;
-addEventListener('resize', () => { medir(); pintar(); });
+$('ajustar').onclick = () => { ajustar(); pintar(); };
+addEventListener('resize', () => {
+  // Al girar el telefono o cambiar el tamano de la ventana se recalcula el
+  // encuadre, pero se respeta el zoom que el usuario haya puesto.
+  medir(); pintar();
+});
+
+// --- acercar y mover ---------------------------------------------------
+// Un simulador sirve para mirar de cerca: el detalle fino (letras, numeros,
+// bordes) no se juzga desde el encuadre completo.
+const ZOOM_MIN = 1, ZOOM_MAX = 40;
+
+function acercar(factor, cx_, cy_){
+  const antes = escalaAct();
+  const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * factor));
+  if (z === zoom) return;
+  zoom = z;
+  // Se acerca respecto del punto senalado, no del centro: si no, lo que
+  // estabas mirando se te escapa de la pantalla.
+  const k = escalaAct() / antes;
+  dx = cx_ - k * (cx_ - dx);
+  dy = cy_ - k * (cy_ - dy);
+  mostrarZoom(); pintar();
+}
+
+function enLienzo(e){
+  const r = cv.getBoundingClientRect();
+  return [(e.clientX - r.left) * DPR(), (e.clientY - r.top) * DPR()];
+}
+
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const [px, py] = enLienzo(e);
+  acercar(Math.exp(-e.deltaY * 0.0015), px, py);
+}, {passive: false});
+
+let punteros = new Map(), pinza = 0;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  punteros.set(e.pointerId, enLienzo(e));
+});
+cv.addEventListener('pointermove', e => {
+  if (!punteros.has(e.pointerId)) return;
+  const previo = punteros.get(e.pointerId), actual = enLienzo(e);
+  punteros.set(e.pointerId, actual);
+  if (punteros.size === 1){                       // arrastrar
+    dx += actual[0] - previo[0];
+    dy += actual[1] - previo[1];
+    pintar();
+  } else if (punteros.size === 2){                // pellizcar
+    const [a, b] = [...punteros.values()];
+    const d = Math.hypot(a[0]-b[0], a[1]-b[1]);
+    if (pinza) acercar(d / pinza, (a[0]+b[0])/2, (a[1]+b[1])/2);
+    pinza = d;
+  }
+});
+for (const ev of ['pointerup','pointercancel','pointerleave'])
+  cv.addEventListener(ev, e => { punteros.delete(e.pointerId); pinza = 0; });
 
 // --- resumen y revision ---
 (function(){
@@ -335,6 +424,6 @@ addEventListener('resize', () => { medir(); pintar(); });
   $('barra').max = N;
 })();
 
-medir(); pintar(); estado(); requestAnimationFrame(cuadro);
+ajustar(); pintar(); estado(); requestAnimationFrame(cuadro);
 </script></body></html>
 """

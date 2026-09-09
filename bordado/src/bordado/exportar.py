@@ -68,17 +68,17 @@ def exportar(patron: pe.EmbPattern, nombre: str, destino: Path,
                     "diseno de aplique.")
 
     # --- Vista previa PNG (requiere Pillow) ---
-    # OJO con el eje Y: los formatos de bordado usan Y hacia ARRIBA (como en
-    # matematicas), mientras que una imagen usa Y hacia ABAJO. Si no se
-    # invierte, la preview sale espejada verticalmente -> el cliente ve algo
-    # distinto a lo que borda la maquina. Es un error clasico y caro.
+    # El patron ya viene con el eje Y en la convencion de pyembroidery (hacia
+    # abajo, ver patron._u), que es la misma del PNG. No se voltea nada.
+    #
+    # Antes SI se volteaba aqui, y ese volteo estaba tapando un error: los
+    # archivos se escribian espejados verticalmente y la preview los enderezaba
+    # solo para la pantalla. Se veia bien y se bordaba al reves. Si algun dia
+    # esta preview vuelve a salir invertida, el problema esta en patron._u, no
+    # aqui: se arregla en la frontera, no con un segundo volteo.
     try:
         png = destino / f"{nombre}_preview.png"
-        espejo = patron.copy()
-        m = pe.EmbMatrix()
-        m.post_scale(1, -1)
-        espejo.transform(m)
-        pe.write_png(espejo, str(png))
+        pe.write_png(patron, str(png))
         generados.append(png)
     except Exception as e:  # noqa: BLE001 - la preview no debe romper el pipeline
         reporte.advertencias.append(f"No se pudo generar el PNG de preview: {e}")
