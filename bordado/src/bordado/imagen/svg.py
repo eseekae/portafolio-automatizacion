@@ -27,6 +27,7 @@ from __future__ import annotations
 import math
 import re
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
 
 from ..geometria import Polilinea, area_shoelace
@@ -96,17 +97,20 @@ def _leer_transform(texto: str) -> tuple:
 # Color
 # --------------------------------------------------------------------------
 
-def _leer_color(elemento: ET.Element, heredado) -> tuple[int, int, int] | None:
-    """Devuelve el relleno como RGB, o None si la forma no se borda."""
-    estilo = elemento.get("style", "")
-    valor = None
-    for trozo in estilo.split(";"):
+def _propiedad(elemento: ET.Element, nombre: str) -> str | None:
+    """Lee una propiedad de presentacion, mirando primero `style`."""
+    for trozo in elemento.get("style", "").split(";"):
         if ":" in trozo:
             k, v = trozo.split(":", 1)
-            if k.strip() == "fill":
-                valor = v.strip()
-    if valor is None:
-        valor = elemento.get("fill")
+            if k.strip() == nombre:
+                return v.strip()
+    return elemento.get(nombre)
+
+
+def _leer_color(elemento: ET.Element, heredado,
+                propiedad: str = "fill") -> tuple[int, int, int] | None:
+    """Devuelve el color de `propiedad` como RGB, o None si no se borda."""
+    valor = _propiedad(elemento, propiedad)
     if valor is None:
         return heredado
     valor = valor.strip().lower()
@@ -394,16 +398,48 @@ def _lienzo(raiz: ET.Element) -> tuple[float, float, tuple]:
     return (w or 100.0), (h or 100.0), IDENTIDAD
 
 
-def cargar(ruta: Path, ancho_mm: float
-           ) -> list[tuple[tuple[int, int, int], list[Polilinea]]]:
+def _factor_escala(matriz: tuple) -> float:
     """
-    Lee el SVG y devuelve [(color RGB, subtrazados en mm), ...] EN ORDEN DE
-    DIBUJO, que es el que hay que respetar: en SVG lo que viene despues tapa
-    lo anterior.
+    Cuanto agranda la matriz, en promedio.
 
-    Los contornos vienen ya escalados al ancho pedido, con el eje Y invertido
-    (el SVG lo tiene hacia abajo y el bordado hacia arriba) y centrados en el
-    origen. Aun NO estan separados en exteriores y huecos: de eso se encarga
+    `stroke-width` esta en el sistema de coordenadas del elemento, asi que una
+    transformacion que agranda la forma agranda tambien su contorno. Se usa la
+    media geometrica de los dos ejes, que es lo que hace SVG cuando la escala
+    no es uniforme.
+    """
+    a, b, c, d = matriz[0], matriz[1], matriz[2], matriz[3]
+    det = abs(a * d - b * c)
+    return math.sqrt(det) if det > 0 else 1.0
+
+
+@dataclass
+class Trazo:
+    """Un contorno del SVG: una linea con grosor, no un area."""
+    color: tuple[int, int, int]
+    puntos: Polilinea
+    ancho_mm: float
+    cerrado: bool
+
+
+def leer(ruta: Path, ancho_mm: float
+         ) -> tuple[list[tuple[tuple[int, int, int], list[Polilinea]]],
+                    list[Trazo]]:
+    """
+    Lee el SVG UNA vez y devuelve (rellenos, trazos).
+
+    `rellenos` son [(color RGB, subtrazados en mm), ...] EN ORDEN DE DIBUJO,
+    que es el que hay que respetar: en SVG lo que viene despues tapa lo
+    anterior.
+
+    `trazos` son los contornos (`stroke`). Antes se ignoraban por completo y
+    era un agujero grande: en un logo, el contorno blanco de un escudo o el
+    marco de una cinta casi nunca es un relleno, es un trazo. Si solo se leen
+    los rellenos, esas piezas no llegan al bordado y no hay forma de que el
+    usuario las recupere.
+
+    Todo viene ya escalado al ancho pedido, con el eje Y invertido (el SVG lo
+    tiene hacia abajo y el bordado hacia arriba) y centrado en el origen. Los
+    rellenos aun NO estan separados en exteriores y huecos: de eso se encarga
     `separar`.
     """
     raiz = ET.parse(ruta).getroot()
@@ -411,39 +447,70 @@ def cargar(ruta: Path, ancho_mm: float
     escala = ancho_mm / ancho_u if ancho_u else 1.0
 
     formas: list[tuple[tuple[int, int, int], list[Polilinea]]] = []
+    lineas: list[tuple[tuple[int, int, int], Polilinea, float, bool]] = []
 
-    def recorrer(elemento: ET.Element, matriz: tuple, color) -> None:
+    def recorrer(elemento: ET.Element, matriz: tuple, color, borde, ancho) -> None:
         matriz = _componer(matriz, _leer_transform(elemento.get("transform", "")))
         color = _leer_color(elemento, color)
+        borde = _leer_color(elemento, borde, "stroke")
+        crudo = _propiedad(elemento, "stroke-width")
+        if crudo is not None:
+            nums = _NUM.findall(crudo)
+            if nums:
+                ancho = abs(float(nums[0]))
         etiqueta = elemento.tag.rsplit("}", 1)[-1]
 
         if etiqueta in ("g", "svg", "a", "switch"):
             for hijo in elemento:
-                recorrer(hijo, matriz, color)
+                recorrer(hijo, matriz, color, borde, ancho)
             return
         if etiqueta in ("defs", "clipPath", "mask", "text", "image", "style"):
             return                      # nada de esto se puede bordar
-        if color is None:
-            return                      # sin relleno: no hay que que coser
+        if color is None and borde is None:
+            return                      # ni relleno ni contorno: nada que coser
 
         # Los subtrazados de UN elemento van juntos: en SVG asi es como se
         # expresa un hueco (la contra de una "o"), con la regla par-impar.
         # Dos elementos distintos, en cambio, son dos formas apiladas.
-        trozos = [[_aplicar(matriz, x, y) for x, y in c]
-                  for c in _forma(elemento)]
-        trozos = [t for t in trozos if len(t) >= 3]
-        if trozos:
-            formas.append((color, trozos))
+        crudos = _forma(elemento)
+        trozos = [[_aplicar(matriz, x, y) for x, y in c] for c in crudos]
 
-    recorrer(raiz, base, None)
-    if not formas:
-        return []
+        if color is not None:
+            llenos = [t for t in trozos if len(t) >= 3]
+            if llenos:
+                formas.append((color, llenos))
 
-    # A milimetros, con el eje Y dado vuelta y centrado en el origen.
+        if borde is not None and ancho > 0:
+            # Un `path` con Z esta cerrado; rect, circle, ellipse y polygon
+            # siempre lo estan. Una `polyline` y un path sin Z, no.
+            if etiqueta == "path":
+                cerrado = "z" in (elemento.get("d", "") or "").lower()
+            else:
+                cerrado = etiqueta != "polyline"
+            # El grosor se mide en el mismo espacio que las coordenadas, asi
+            # que la transformacion tambien lo afecta.
+            factor = _factor_escala(matriz)
+            for t in trozos:
+                if len(t) >= 2:
+                    lineas.append((borde, t, ancho * factor, cerrado))
+
+    recorrer(raiz, base, None, None, 1.0)
+
     cx, cy = ancho_u / 2.0, alto_u / 2.0
-    return [(color, [[((x - cx) * escala, (cy - y) * escala) for x, y in t]
-                     for t in trozos])
-            for color, trozos in formas]
+
+    def a_mm(t: Polilinea) -> Polilinea:
+        return [((x - cx) * escala, (cy - y) * escala) for x, y in t]
+
+    rellenos = [(color, [a_mm(t) for t in trozos]) for color, trozos in formas]
+    trazos = [Trazo(color, a_mm(t), ancho * escala, cerrado)
+              for color, t, ancho, cerrado in lineas]
+    return rellenos, trazos
+
+
+def cargar(ruta: Path, ancho_mm: float
+           ) -> list[tuple[tuple[int, int, int], list[Polilinea]]]:
+    """Solo los rellenos. Ver `leer` para el detalle."""
+    return leer(ruta, ancho_mm)[0]
 
 
 def separar(formas: list[tuple[tuple[int, int, int], list[Polilinea]]],

@@ -117,6 +117,52 @@ def remuestrear(polilinea: Polilinea, paso_mm: float,
     return salida
 
 
+def desplazar_trazo(trazo: Polilinea, dist_mm: float) -> Polilinea:
+    """
+    Offset de una polilinea ABIERTA: la corre `dist_mm` a un lado.
+
+    Sirve para convertir el trazo de un SVG (una linea con grosor) en los dos
+    rieles de una columna satin: uno a +ancho/2 y otro a -ancho/2.
+
+    A diferencia de `desplazar_contorno`, los extremos no tienen vecino por un
+    lado, asi que ahi se usa la normal de la unica arista que hay.
+
+    Misma limitacion que su hermana: es un offset por normales promediadas.
+    Con los desplazamientos de los que se trata aqui -medio milimetro, el
+    grosor de un contorno- no alcanza a auto-intersectarse ni en una esquina
+    aguda. Con offsets grandes si podria.
+    """
+    n = len(trazo)
+    if n < 2:
+        return list(trazo)
+
+    def normal(a: Punto, b: Punto) -> Punto:
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = math.hypot(dx, dy) or 1.0
+        return (-dy / L, dx / L)          # a la izquierda del avance
+
+    salida: Polilinea = []
+    for i in range(n):
+        if i == 0:
+            nx, ny = normal(trazo[0], trazo[1])
+        elif i == n - 1:
+            nx, ny = normal(trazo[-2], trazo[-1])
+        else:
+            ax, ay = normal(trazo[i - 1], trazo[i])
+            bx, by = normal(trazo[i], trazo[i + 1])
+            nx, ny = ax + bx, ay + by
+            L = math.hypot(nx, ny)
+            if L < 1e-9:                  # giro de 180 grados
+                nx, ny = ax, ay
+            else:
+                # Se alarga para que el ancho del offset se mantenga en la
+                # esquina y no se estreche por el coseno del angulo.
+                escala = min(4.0, 1.0 / max(L / 2.0, 0.25))
+                nx, ny = nx / L * escala, ny / L * escala
+        salida.append((trazo[i][0] + nx * dist_mm, trazo[i][1] + ny * dist_mm))
+    return salida
+
+
 def desplazar_contorno(poligono: Polilinea, dist_mm: float) -> Polilinea:
     """
     Offset aproximado de un poligono cerrado por normales promediadas.
