@@ -51,8 +51,11 @@ PX_POR_MM = 24.0
 # deja el adelgazado en una esquina.
 RAMA_MINIMA_MM = 0.6
 
-# Tope de pixeles por region. Sin el, una figura grande cuesta segundos.
-PIXELES_MAX = 400_000
+# Tope de pixeles por region. Ahora lo unico que recorre la rejilla entera es
+# el adelgazado, que va vectorizado con numpy, asi que el tope puede ser
+# generoso: con 400.000 el contorno de un escudo de 15 cm quedaba con seis
+# pixeles de ancho y la costura salia cortada a trozos.
+PIXELES_MAX = 1_500_000
 
 
 def rasterizar(exterior: Polilinea, huecos: list[Polilinea],
@@ -97,50 +100,45 @@ def rasterizar(exterior: Polilinea, huecos: list[Polilinea],
     return m, x0, y0, px_por_mm
 
 
-def distancia_al_borde(m: np.ndarray) -> np.ndarray:
+def medir_ancho(m: np.ndarray, j: int, i: int,
+                dj: float, di: float) -> float:
     """
-    Distancia de cada pixel de la mancha al fondo mas cercano, en pixeles.
+    Semiancho del trazo en un punto, medido PERPENDICULAR a su direccion.
 
-    Chamfer 3-4 en dos pasadas. No es la distancia euclidea exacta -se
-    equivoca hasta un 6%- pero aqui solo se usa para medir el ancho de un
-    trazo, donde ese error es de centesimas de milimetro.
+    Se avanza pixel a pixel hacia los dos lados hasta salir de la mancha, y se
+    devuelve la mitad de lo recorrido.
+
+    POR QUE ASI Y NO CON UNA TRANSFORMADA DE DISTANCIA
+        Antes se calculaba la distancia al borde de TODOS los pixeles con un
+        chamfer en dos pasadas. Funciona, pero recorre la rejilla entera en
+        Python puro, asi que hubo que poner un tope de pixeles... y ese tope
+        es lo que arruinaba los contornos largos: el borde de un escudo de
+        15 cm quedaba con seis pixeles de ancho, el adelgazado salia
+        irregular y la costura aparecia cortada a trozos.
+
+        Aqui solo se mide en los puntos del ESQUELETO, que son unos cientos,
+        y cada medicion recorre unos pocos pixeles. Deja de ser el cuello de
+        botella y permite trabajar a resolucion alta. Ademas mide mejor: la
+        distancia al borde mas cercano puede salirse por una punta, mientras
+        que esto mide el ancho del trazo, que es lo que se necesita.
     """
-    INF = 1e9
-    d = np.where(m, INF, 0.0)
-    alto, ancho = d.shape
-    A, B = 3.0, 4.0                    # costo recto y diagonal
+    alto, ancho = m.shape
+    L = math.hypot(dj, di) or 1.0
+    # Perpendicular a la direccion de avance.
+    pj, pi = -di / L, dj / L
 
-    for j in range(alto):              # ida: arriba-izquierda -> abajo-derecha
-        for i in range(ancho):
-            if d[j, i] == 0.0:
-                continue
-            v = d[j, i]
-            if j > 0:
-                v = min(v, d[j - 1, i] + A)
-                if i > 0:
-                    v = min(v, d[j - 1, i - 1] + B)
-                if i < ancho - 1:
-                    v = min(v, d[j - 1, i + 1] + B)
-            if i > 0:
-                v = min(v, d[j, i - 1] + A)
-            d[j, i] = v
+    def hasta_el_borde(signo: int) -> float:
+        paso = 0.5
+        d = paso
+        while d < 200.0:
+            jj = int(round(j + pj * d * signo))
+            ii = int(round(i + pi * d * signo))
+            if not (0 <= jj < alto and 0 <= ii < ancho) or not m[jj, ii]:
+                return d
+            d += paso
+        return d
 
-    for j in range(alto - 1, -1, -1):  # vuelta
-        for i in range(ancho - 1, -1, -1):
-            if d[j, i] == 0.0:
-                continue
-            v = d[j, i]
-            if j < alto - 1:
-                v = min(v, d[j + 1, i] + A)
-                if i > 0:
-                    v = min(v, d[j + 1, i - 1] + B)
-                if i < ancho - 1:
-                    v = min(v, d[j + 1, i + 1] + B)
-            if i < ancho - 1:
-                v = min(v, d[j, i + 1] + A)
-            d[j, i] = v
-
-    return d / A                       # a unidades de pixel
+    return (hasta_el_borde(1) + hasta_el_borde(-1)) / 2.0
 
 
 def adelgazar(m: np.ndarray) -> np.ndarray:
@@ -276,7 +274,7 @@ def ramas(esq: np.ndarray) -> list[list[tuple[int, int]]]:
     return salida
 
 
-def _podar(caminos: list[list[tuple[int, int]]], dist: np.ndarray,
+def _podar(caminos: list[list[tuple[int, int]]], m: np.ndarray,
            factor: float = 1.2) -> list[list[tuple[int, int]]]:
     """
     Quita las espinas: ramas cortas que salen de una bifurcacion y no van a
@@ -302,10 +300,50 @@ def _podar(caminos: list[list[tuple[int, int]]], dist: np.ndarray,
             salida.append(c)                     # une dos bifurcaciones
             continue
         largo = sum(math.dist(c[k], c[k + 1]) for k in range(len(c) - 1))
-        ancho = max(float(dist[j, i]) for j, i in c) * 2.0
+        medio = len(c) // 2
+        dj = c[min(medio + 1, len(c) - 1)][0] - c[max(medio - 1, 0)][0]
+        di = c[min(medio + 1, len(c) - 1)][1] - c[max(medio - 1, 0)][1]
+        ancho = medir_ancho(m, c[medio][0], c[medio][1], dj, di) * 2.0
         if libres == 2 or largo >= ancho * factor:
             salida.append(c)
     return salida or caminos
+
+
+def _unir(caminos: list[list[tuple[int, int]]]) -> list[list[tuple[int, int]]]:
+    """
+    Vuelve a pegar las ramas que solo se separaron por un artefacto.
+
+    El esqueleto se corta en cada bifurcacion. Un contorno largo -el borde de
+    un escudo- tiene bifurcaciones espurias en cada irregularidad, y al
+    podarlas quedan dos ramas que en realidad son la MISMA linea partida en
+    dos. Cosidas por separado dejan una muesca justo ahi.
+
+    Donde se juntan exactamente dos ramas, se pegan.
+    """
+    caminos = [list(c) for c in caminos]
+    cambio = True
+    while cambio:
+        cambio = False
+        extremos: dict[tuple[int, int], list[int]] = {}
+        for k, c in enumerate(caminos):
+            for punto in (c[0], c[-1]):
+                extremos.setdefault(punto, []).append(k)
+
+        for punto, quienes in extremos.items():
+            # Exactamente dos ramas, y distintas: es una linea partida.
+            if len(quienes) != 2 or quienes[0] == quienes[1]:
+                continue
+            a, b = quienes
+            ca, cb = caminos[a], caminos[b]
+            if ca[-1] != punto:
+                ca = ca[::-1]
+            if cb[0] != punto:
+                cb = cb[::-1]
+            caminos[a] = ca + cb[1:]
+            caminos.pop(b)
+            cambio = True
+            break
+    return caminos
 
 
 def _alargar(puntos: Polilinea, semi: list[float]) -> tuple[Polilinea, list[float]]:
@@ -341,20 +379,32 @@ def trazos_de_region(exterior: Polilinea, huecos: list[Polilinea],
     m, x0, y0, ppmm = rasterizar(exterior, huecos, px_por_mm)
     if not m.any():
         return []
-    dist = distancia_al_borde(m)
     esq = adelgazar(m)
     if not esq.any():
         return []
 
     salida: list[tuple[Polilinea, list[float]]] = []
-    for camino in _podar(ramas(esq), dist):
+    for camino in _unir(_podar(ramas(esq), m)):
         puntos = [(x0 + (i + 0.5) / ppmm, y0 + (j + 0.5) / ppmm)
                   for j, i in camino]
         largo = sum(math.dist(puntos[k], puntos[k + 1])
                     for k in range(len(puntos) - 1))
         if largo < rama_minima_mm:
             continue
-        semi = [float(dist[j, i]) / ppmm for j, i in camino]
+        n = len(camino)
+        semi = []
+        # La direccion se toma sobre una VENTANA, no entre pixeles contiguos.
+        # El esqueleto avanza en pasos de un pixel, asi que dos vecinos solo
+        # pueden dar 0, 45 o 90 grados: con esa direccion la perpendicular se
+        # equivoca y el ancho medido no es el del trazo.
+        v = max(2, int(round(ppmm / 4)))
+        for k, (j, i) in enumerate(camino):
+            a = camino[max(k - v, 0)]
+            b = camino[min(k + v, n - 1)]
+            dj, di = b[0] - a[0], b[1] - a[1]
+            if dj == 0 and di == 0:
+                dj, di = 1, 0
+            semi.append(medir_ancho(m, j, i, dj, di) / ppmm)
         salida.append(_alargar(puntos, semi))
     return salida
 

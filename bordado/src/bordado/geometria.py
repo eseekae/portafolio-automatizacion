@@ -10,6 +10,8 @@ from __future__ import annotations
 import math
 from typing import Iterable
 
+import numpy as np
+
 Punto = tuple[float, float]
 Polilinea = list[Punto]
 
@@ -216,19 +218,52 @@ def cruces_scanline_anillos(anillos: list[Polilinea], y: float) -> list[float]:
     exterior y luego entra al hueco acumula dos cruces, asi que el tramo
     dentro del hueco queda fuera de los pares y no se cose.
     """
-    xs: list[float] = []
+    a = _aristas(anillos)
+    if a is None:
+        return []
+    x1, y1, x2, y2 = a
+    # Intervalo semiabierto [min, max) para no contar dos veces los vertices.
+    corta = (np.minimum(y1, y2) <= y) & (y < np.maximum(y1, y2))
+    if not corta.any():
+        return []
+    yy1 = y1[corta]
+    t = (y - yy1) / (y2[corta] - yy1)
+    return sorted((x1[corta] + t * (x2[corta] - x1[corta])).tolist())
+
+
+# Las aristas de un contorno se recalculan una vez por FILA del relleno, y un
+# diseno tiene miles de filas. Construirlas en Python cada vez era el trabajo
+# mas caro de todo el programa; se guardan y se reutilizan.
+_CACHE_ARISTAS: dict[int, tuple] = {}
+
+
+def _aristas(anillos: list[Polilinea]):
+    """Arrays (x1, y1, x2, y2) con todas las aristas, sin las horizontales."""
+    clave = id(anillos)
+    guardado = _CACHE_ARISTAS.get(clave)
+    if guardado is not None and guardado[0] is anillos:
+        return guardado[1]
+
+    trozos = []
     for anillo in anillos:
-        n = len(anillo)
-        for i in range(n):
-            x1, y1 = anillo[i]
-            x2, y2 = anillo[(i + 1) % n]
-            if y1 == y2:
-                continue  # arista horizontal: no aporta cruce
-            # Intervalo semiabierto [min, max) para no contar dos veces los vertices
-            if min(y1, y2) <= y < max(y1, y2):
-                t = (y - y1) / (y2 - y1)
-                xs.append(x1 + t * (x2 - x1))
-    return sorted(xs)
+        if len(anillo) < 2:
+            continue
+        p = np.asarray(anillo, dtype=float)
+        q = np.roll(p, -1, axis=0)
+        vivo = p[:, 1] != q[:, 1]          # las horizontales no aportan cruce
+        if vivo.any():
+            trozos.append((p[vivo], q[vivo]))
+    if not trozos:
+        salida = None
+    else:
+        pa = np.concatenate([t[0] for t in trozos])
+        qa = np.concatenate([t[1] for t in trozos])
+        salida = (pa[:, 0], pa[:, 1], qa[:, 0], qa[:, 1])
+
+    if len(_CACHE_ARISTAS) > 64:           # no crecer sin limite
+        _CACHE_ARISTAS.clear()
+    _CACHE_ARISTAS[clave] = (anillos, salida)
+    return salida
 
 
 # --------------------------------------------------------------------------

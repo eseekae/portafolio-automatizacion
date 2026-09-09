@@ -491,3 +491,71 @@ def test_una_bahia_abierta_si_es_fondo(tmp_path: Path):
     fondo = detectar_fondo(rgb, alfa)
     alto, ancho = fondo.shape
     assert fondo[int(alto * 0.72), ancho // 2], "la muesca abierta es fondo"
+
+
+# ------------------------------------------------ trazos finos y contornos
+
+def test_un_contorno_largo_y_fino_se_cose_por_su_eje():
+    """
+    Lo que decide la tecnica es el ANCHO del trazo, no el tamano de la figura.
+
+    El borde de un escudo de 15 cm es un trazo de milimetro y medio: no es una
+    superficie que rellenar. `satin_de_region` tampoco sirve, porque parte el
+    contorno en dos lados largos con un doble barrido y en un ANILLO ese
+    reparto no existe: la costura salia a trozos.
+    """
+    from bordado.geometria import circulo
+    anillo = _describir(0, circulo((0, 0), 60, 200), [circulo((0, 0), 58.5, 200)])
+    assert anillo.grosor_mm < 3.5
+    assert elegir_tecnica(anillo) == "letra"
+
+
+def test_una_superficie_ancha_se_sigue_rellenando():
+    """La regla nueva no puede robarle regiones al relleno."""
+    from bordado.geometria import circulo
+    disco = _describir(0, circulo((0, 0), 30, 120), [])
+    assert elegir_tecnica(disco) == "relleno"
+
+
+def test_en_una_letra_no_se_cose_de_un_trazo_a_otro():
+    """
+    Los trazos de un numero estan a uno o dos milimetros unos de otros, asi
+    que el enlace se activaba siempre y dejaba una linea de hilo cruzando el
+    caracter por el medio. Sobre un relleno no se nota; sobre un "8" de cuatro
+    milimetros, lo arruina.
+    """
+    import pyembroidery as pe
+    from bordado.parametros import ParamGlobales
+    from bordado.patron import ConstructorPatron
+
+    # Dos trazos separados por 2 mm: dentro del alcance del enlace.
+    a = [(0.0, 0.0), (5.0, 0.0)]
+    b = [(7.0, 0.0), (12.0, 0.0)]
+
+    con = ConstructorPatron(ParamGlobales())
+    con.agregar("normal", "#000000", [a, b])
+    sin = ConstructorPatron(ParamGlobales())
+    sin.agregar("letra", "#000000", [a, b], enlazar=False)
+
+    def saltos(p):
+        return sum(1 for _, _, c in p.get_normalized_pattern().stitches
+                   if c & pe.COMMAND_MASK == pe.JUMP)
+
+    # Todo bloque arranca con un salto para colocar la aguja; lo que importa
+    # es el salto DE MAS que aparece entre los dos trazos.
+    assert saltos(sin.construir()) > saltos(con.construir()), (
+        "la letra deberia saltar entre trazos, no coser de uno a otro")
+
+
+def test_el_enlace_tampoco_sale_de_una_letra():
+    """Hacia afuera el hilo cruzaria igual el caracter."""
+    import pyembroidery as pe
+    from bordado.parametros import ParamGlobales
+    from bordado.patron import ConstructorPatron
+
+    con = ConstructorPatron(ParamGlobales())
+    con.agregar("letra", "#000000", [[(0.0, 0.0), (5.0, 0.0)]], enlazar=False)
+    con.agregar("otra", "#000000", [[(7.0, 0.0), (12.0, 0.0)]])
+    saltos = sum(1 for _, _, c in con.construir().get_normalized_pattern().stitches
+                 if c & pe.COMMAND_MASK == pe.JUMP)
+    assert saltos >= 1
