@@ -255,3 +255,68 @@ def test_un_pelo_no_se_engorda_hasta_la_puntada_minima():
     assert min(x for x in largos if x > 1e-9) >= 0.6
     # Y no se sale de la linea: el ancho cubierto es el del hilo, no mas.
     assert max(abs(q[1]) for q in puntos) < 1e-6
+
+
+# --------------------------------------------------- contornos: dos orillas
+
+def test_el_contorno_se_cose_de_una_sola_pasada():
+    """
+    LA solucion al borde punteado.
+
+    Por el eje medial, un contorno de 15 cm salia partido en unos 160 tramos
+    -el adelgazado inventa una bifurcacion en cada irregularidad del borde- y
+    cada union dejaba una muesca. Entre las dos orillas es UNA sola columna
+    que da la vuelta completa: no puede tener muescas.
+    """
+    from bordado.geometria import circulo
+    from bordado.puntadas import satin_de_anillo
+    corridas = satin_de_anillo(circulo((0, 0), 20, 200), circulo((0, 0), 19, 200),
+                               ParamSatin(densidad_mm=0.4, compensacion_mm=0.0))
+    assert len(corridas) == 1, "el contorno tiene que ser una sola corrida"
+
+
+def test_los_rieles_del_contorno_son_sus_propias_orillas():
+    """No se calcula nada intermedio: los dos rieles ya existen."""
+    from bordado.geometria import circulo
+    from bordado.puntadas import satin_de_anillo
+    puntos = satin_de_anillo(circulo((0, 0), 20, 200), circulo((0, 0), 19, 200),
+                             ParamSatin(densidad_mm=0.4, compensacion_mm=0.0))[0]
+    radios = [math.hypot(*q) for q in puntos]
+    assert min(radios) == pytest.approx(19.0, abs=0.05)
+    assert max(radios) == pytest.approx(20.0, abs=0.05)
+
+
+def test_la_puntada_del_contorno_cruza_la_columna():
+    """Cada puntada mide el ANCHO del contorno, no el avance."""
+    from bordado.geometria import circulo
+    from bordado.puntadas import satin_de_anillo
+    puntos = satin_de_anillo(circulo((0, 0), 20, 200), circulo((0, 0), 19, 200),
+                             ParamSatin(densidad_mm=0.4, compensacion_mm=0.0))[0]
+    largos = [math.dist(puntos[i], puntos[i + 1]) for i in range(len(puntos) - 1)]
+    assert min(largos) >= 0.9
+
+
+def test_un_contorno_al_reves_igual_se_empareja():
+    """
+    El hueco suele venir con el giro contrario. Sin orientarlo igual, la
+    columna cruza la figura en diagonal y sale un ovillo.
+    """
+    from bordado.geometria import circulo
+    from bordado.puntadas import satin_de_anillo
+    hueco_al_reves = circulo((0, 0), 19, 200)[::-1]
+    puntos = satin_de_anillo(circulo((0, 0), 20, 200), hueco_al_reves,
+                             ParamSatin(densidad_mm=0.4, compensacion_mm=0.0))[0]
+    largos = [math.dist(puntos[i], puntos[i + 1]) for i in range(len(puntos) - 1)]
+    # Si el emparejamiento fallara, habria puntadas que cruzan el circulo.
+    assert max(largos) < 3.0
+
+
+def test_un_contorno_finisimo_se_ensancha_hasta_la_puntada_minima():
+    """Sin esto, el filtro de puntadas cortas se llevaria el contorno entero."""
+    from bordado.geometria import circulo
+    from bordado.puntadas import satin_de_anillo
+    puntos = satin_de_anillo(circulo((0, 0), 20, 200), circulo((0, 0), 19.7, 200),
+                             ParamSatin(densidad_mm=0.4, compensacion_mm=0.0),
+                             ancho_minimo_mm=0.7)[0]
+    largos = [math.dist(puntos[i], puntos[i + 1]) for i in range(len(puntos) - 1)]
+    assert min(largos) == pytest.approx(0.7, abs=0.01)

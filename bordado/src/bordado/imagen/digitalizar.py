@@ -35,7 +35,8 @@ from ..parametros import (
 from ..patron import ConstructorPatron
 from ..puntadas import (
     columna_satin, eje_de_franja, ordenar_corridas, puntada_recta,
-    puntada_triple, relleno_tatami, satin_de_region, satin_por_eje,
+    puntada_triple, relleno_tatami, satin_de_anillo, satin_de_region,
+    satin_por_eje,
 )
 from . import segmentar as seg
 from .esqueleto import suavizar, trazos_de_region
@@ -185,6 +186,15 @@ def elegir_tecnica(r: Region, densidad_mm: float = 0.40,
         coste_relleno, coste_aplique = puntadas_estimadas(r, densidad_mm, p_aplique)
         if coste_aplique <= coste_relleno * (1.0 - APLIQUE_AHORRO_MINIMO):
             return "aplique"
+    if es_anillo(r):
+        # Un contorno se cose como columna satin entre sus DOS orillas, que es
+        # como lo hace la industria. Ver `satin_de_anillo`.
+        #
+        # Va ANTES del filtro de grosor: un contorno sigue siendo un contorno
+        # aunque sea finisimo, y sus dos rieles son exactos. Estaba despues, y
+        # por eso el borde de un escudo a 80 mm -0.7 mm de grosor- se iba por
+        # el camino del eje medial y volvia a salir punteado.
+        return "contorno"
     if r.grosor_mm < GROSOR_MINIMO_MM:
         # Demasiado fina para rellenar. Si es un trazo de verdad y no ruido,
         # se descompone en sus trazos y cada uno se cose como columna satin.
@@ -204,6 +214,24 @@ def elegir_tecnica(r: Region, densidad_mm: float = 0.40,
     if es_letra(r):
         return "letra"
     return "relleno"
+
+
+def es_anillo(r: Region) -> bool:
+    """
+    Si la region es un contorno: una franja delgada que se cierra sobre si
+    misma, con su hueco por dentro.
+
+    Se pide que el hueco acompane al exterior a lo largo de todo el recorrido.
+    Un disco con un agujerito tambien tiene un hueco, pero no es un contorno:
+    ahi el hueco es corto comparado con el borde de afuera.
+    """
+    if r.trazo or len(r.huecos) != 1 or r.grosor_mm > ANCHO_EJE_MAX_MM:
+        return False
+    if not es_corrida(r):
+        return False                    # ruido de antialiasing, no un contorno
+    fuera = longitud(r.exterior, cerrada=True)
+    dentro = longitud(r.huecos[0], cerrada=True)
+    return fuera > 0 and dentro / fuera >= 0.5
 
 
 def es_letra(r: Region) -> bool:
@@ -720,6 +748,15 @@ def tejer(d: "Digitalizacion", g: ParamGlobales | None = None,
             d.descartadas += 1
             d.area_descartada_mm2 += r.area_mm2
             continue
+
+        if tecnica == "contorno":
+            corridas = satin_de_anillo(
+                r.exterior, r.huecos[0],
+                ParamSatin(densidad_mm=max(0.30, densidad_mm - 0.05),
+                           compensacion_mm=0.05, underlay="none"),
+                ancho_minimo_mm=g.puntada_min_mm)
+            if not corridas:
+                tecnica = "letra"
 
         if tecnica == "trazo_satin":
             # El contorno tiene grosor de verdad: se cubre con una columna

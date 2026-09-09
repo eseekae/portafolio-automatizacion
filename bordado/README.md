@@ -162,6 +162,25 @@ Tres cosas que sí hace bien y que la mayoría de los automáticos baratos no:
 - **Te dice qué hilos comprar.** Elige de la paleta real de tu máquina, con
   nombre y número, y avisa cuándo el color es solo aproximado.
 
+## Cómo se borda un contorno
+
+Un contorno —el borde de un escudo, el marco de una cinta— **no se rellena ni
+se descompone en trazos**: se cose como una sola columna satén entre sus dos
+orillas, que es como lo hace la industria. Los dos rieles que una columna
+satén necesita ya existen en la figura: son el contorno exterior y el hueco.
+No hay que calcular nada intermedio.
+
+> Antes se resolvía por el eje medial, y ahí estaba el problema: el adelgazado
+> inventa una bifurcación en cada irregularidad del borde, así que un contorno
+> de 15 cm salía partido en unos **160 tramos**. Cada tramo es una columna con
+> su principio y su final, y en cada unión quedaba una muesca: el borde se veía
+> punteado. Entre las dos orillas es **una sola pasada que da la vuelta
+> completa**, así que no puede tener muescas.
+
+Lo único delicado es emparejar los dos anillos: hay que recorrerlos en el mismo
+sentido y arrancar en puntos que se correspondan. Si no, la columna cruza la
+figura en diagonal y sale un ovillo.
+
 ## Elegir qué partes se bordan
 
 Un logo trae piezas que no siempre quieres: un contorno, una sombra, un texto
@@ -234,6 +253,24 @@ Si tu logo trae texto por debajo del límite:
 1. **Agranda el diseño.** Es lo que de verdad lo resuelve.
 2. **Desmarca esas piezas** y borda el resto limpio.
 3. Borda el texto aparte, más grande, como una segunda pieza.
+
+### Digitalizar grande y reducir después NO sirve
+
+Es lo primero que uno piensa y está mal. Medido sobre el escudo del Instituto
+Nacional, digitalizado a 160 mm y reducido a la mitad:
+
+| | Reducir 160 → 80 | Digitalizar directo a 80 |
+|---|---:|---:|
+| Densidad | **520 punt/cm²** | 262 punt/cm² |
+| Puntadas bajo el mínimo | **11** | 0 |
+| Errores del validador | **1** | 0 |
+
+Reducir a la mitad **no quita ni una puntada**: las mete todas en un cuarto de
+la superficie. La separación entre pasadas cae de 0,40 a 0,20 mm, la tela se
+agarrota y la aguja se rompe. El programa lo rechaza solo y te dice por qué.
+
+**Digitaliza directamente al tamaño que vas a bordar.** El reescalado sirve
+para ajustes de ±12%, no para cambiar de talla.
 
 # Appliqué: bordar sobre tela en vez de rellenar
 
@@ -800,7 +837,7 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (272 tests, en Windows / macOS / Linux):
+Implementado y testeado (279 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
@@ -817,6 +854,7 @@ Implementado y testeado (272 tests, en Windows / macOS / Linux):
   de cada trazo, que es lo que permite bajar de la puntada mínima
 - Selector de piezas: el usuario elige qué partes del dibujo se bordan
 - Contornos (`stroke`) del SVG, con satén o corrida según su grosor
+- Contornos cerrados cosidos de una sola pasada entre sus dos orillas
 - Resolución de trabajo adaptativa al tamaño del diseño
 - Color de tela configurable en el simulador
 - Aplicación de escritorio de dos pestañas y empaquetado a ejecutable
@@ -849,11 +887,9 @@ Limitaciones conocidas (documentadas en el código):
   lettering por debajo de eso hacen falta fuentes vectoriales pre-digitalizadas
   a mano, que es como lo resuelven los programas comerciales.
 - El eje medial sale de un esqueleto por adelgazado, así que en una unión de
-  trazos la columna satén se interrumpe y se retoma. En un contorno largo eso
-  deja alguna muesca: el borde de un escudo de 15 cm se cose en unos 160
-  tramos porque el adelgazado genera bifurcaciones en cada irregularidad del
-  borde. Se podan las espinas y se vuelven a unir las ramas partidas, pero no
-  todas.
+  trazos la columna satén se interrumpe y se retoma. Se nota en una letra muy
+  grande; a tamaño de logo, no. **Los contornos ya no pasan por ahí** — ver
+  abajo.
 - Digitalizar un logo complejo a 160 mm toma unos 15 segundos.
 - El offset que convierte un `stroke` en columna satén es por normales
   promediadas, igual que `desplazar_contorno`: con los grosores de un contorno
