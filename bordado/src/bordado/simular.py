@@ -159,7 +159,7 @@ _PLANTILLA = r"""<!doctype html>
  main{display:flex;flex-wrap:wrap;gap:16px;padding:16px;align-items:flex-start}
  .lienzo{background:var(--panel);border:1px solid var(--linea);border-radius:8px;
          padding:10px;flex:1 1 520px;min-width:320px}
- canvas{width:100%;height:auto;display:block;background:#fff;border-radius:4px;
+ canvas{width:100%;height:auto;display:block;border-radius:4px;
         touch-action:none;cursor:crosshair}
  aside{flex:0 1 290px;min-width:250px;display:flex;flex-direction:column;gap:12px}
  .caja{background:var(--panel);border:1px solid var(--linea);border-radius:8px;padding:12px}
@@ -176,6 +176,14 @@ _PLANTILLA = r"""<!doctype html>
  label{display:flex;gap:6px;align-items:center;font-size:13px;padding:2px 0;cursor:pointer}
  .hilo{display:flex;gap:8px;align-items:center;padding:3px 0}
  .muestra{width:16px;height:16px;border-radius:3px;border:1px solid #0002;flex:none}
+ .telas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+ .tela{width:26px;height:26px;border-radius:5px;border:2px solid transparent;
+       cursor:pointer;box-shadow:inset 0 0 0 1px #0002;padding:0}
+ .tela:hover{border-color:var(--acento)}
+ .tela[aria-pressed="true"]{border-color:var(--acento)}
+ .elegir{justify-content:space-between}
+ .elegir input[type=color]{width:44px;height:26px;padding:0;border:1px solid var(--linea);
+                           border-radius:5px;background:none;cursor:pointer}
  .pie{color:var(--suave);font-size:12px;margin-top:6px;text-align:center}
  .aviso{color:#B3261E}
  .ok{color:#1B7F3B}
@@ -207,6 +215,11 @@ _PLANTILLA = r"""<!doctype html>
    <div class="fila"><span>Puntada</span><b id="n">0</b></div>
    <div class="fila"><span>Recorrido cosido</span><b id="hilo">0 m</b></div>
    <div class="fila"><span>Cortes hechos</span><b id="nc">0</b></div>
+  </div>
+  <div class="caja"><h2>Tela</h2>
+   <div class="telas" id="telas"></div>
+   <label class="elegir">Otro color
+    <input type="color" id="fondo" value="#FFFFFF"></label>
   </div>
   <div class="caja"><h2>Ver</h2>
    <label><input type="checkbox" id="vsaltos" checked> Saltos de aguja</label>
@@ -260,8 +273,33 @@ const centroY = () => (cv.height - D.alto * escalaAct()) / 2 + dy;
 const X = v => centroX() + (v - D.x0) * escalaAct();
 const Y = v => centroY() + (v - D.y0) * escalaAct();
 
+// --- color de la tela ----------------------------------------------------
+// Un bordado no se mira sobre papel blanco: se mira sobre la prenda. Con el
+// fondo blanco, un hilo blanco es invisible y no hay forma de revisarlo; y un
+// diseno pensado para una polera negra se ve distinto de lo que sera.
+// Los atajos son los colores de polera mas comunes; el selector permite
+// cualquier color, incluido el exacto de la tela que se vaya a usar.
+const TELAS = [['#FFFFFF','blanco'], ['#111111','negro'], ['#9AA0A6','gris'],
+               ['#1B2A4A','azul marino'], ['#7A1220','burdeo'],
+               ['#0F5132','verde'], ['#E8DCC8','crudo'], ['#C8102E','rojo']];
+let tela = '#FFFFFF';
+
+function marcarTela(){
+  for (const b of document.querySelectorAll('.tela'))
+    b.setAttribute('aria-pressed', b.dataset.c.toUpperCase() === tela.toUpperCase());
+}
+function ponerTela(c){ tela = c; $('fondo').value = c; marcarTela(); pintar(); }
+
+$('telas').innerHTML = TELAS.map(([c, n]) =>
+  `<button class="tela" data-c="${c}" style="background:${c}" title="${n}"></button>`
+).join('');
+for (const b of document.querySelectorAll('.tela'))
+  b.onclick = () => ponerTela(b.dataset.c);
+$('fondo').oninput = e => ponerTela(e.target.value);
+marcarTela();
+
 function pintar(){
-  cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+  cx.fillStyle = tela; cx.fillRect(0, 0, cv.width, cv.height);
   const saltos = $('vsaltos').checked, avisos = $('vavisos').checked,
         cortes = $('vcortes').checked;
   cx.lineCap = 'round';
