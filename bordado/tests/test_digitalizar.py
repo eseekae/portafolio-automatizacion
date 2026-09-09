@@ -296,3 +296,117 @@ def test_coser_el_detalle_fino_cuesta_poco(insignia):
     assert n_con > n_sin, "el trazo fino no agrego ni una puntada"
     assert n_con < n_sin * 1.5, (
         f"el detalle fino disparo las puntadas: {n_sin} -> {n_con}")
+
+
+# ----------------------------------------------- eje central y resolucion
+
+def test_el_eje_de_una_franja_pasa_por_su_medio():
+    """Cosiendo el CONTORNO el trazo queda hueco; el eje lo deja macizo."""
+    from bordado.geometria import remuestrear
+    from bordado.puntadas import eje_de_franja
+    franja = remuestrear([(0, 0), (20, 0), (20, 1), (0, 1)], 0.5, cerrada=True)
+    eje = eje_de_franja(franja)
+    assert eje is not None
+    medio = [p for p in eje if 3 < p[0] < 17]
+    assert medio and all(abs(p[1] - 0.5) < 0.1 for p in medio)
+
+
+def test_una_figura_compacta_no_tiene_eje():
+    """
+    Un cuerpo de numero no es una franja. Forzarle un eje lo convierte en un
+    palito, que es peor que recorrer su borde. Se comprobo mirando el "1813"
+    de una insignia: con eje salian garabatos.
+    """
+    from bordado.imagen.digitalizar import _eje_confiable
+    from bordado.geometria import remuestrear
+    cuadrado = remuestrear([(0, 0), (4, 0), (4, 4), (0, 4)], 0.3, cerrada=True)
+    r = _describir(0, cuadrado, [])
+    assert _eje_confiable(r) is None
+
+
+def test_la_resolucion_baja_en_disenos_grandes():
+    """El costo va con el area: hay que acotar el ancho en pixeles."""
+    from bordado.imagen.digitalizar import (
+        ANCHO_PX_MAX, PX_POR_MM_MAX, resolucion_para,
+    )
+    assert resolucion_para(80.0) == PX_POR_MM_MAX
+    assert resolucion_para(400.0) * 400.0 == pytest.approx(ANCHO_PX_MAX)
+    assert resolucion_para(10000.0) >= 4.0
+
+
+# ------------------------------------------------- elegir que se borda
+
+def test_tejer_cose_solo_las_piezas_pedidas(insignia):
+    from bordado.imagen.digitalizar import tejer
+    patron, d, _ = digitalizar(insignia, ancho_mm=60, n_colores=3, px_por_mm=8.0)
+    todas = patron.count_stitch_commands(pe.STITCH)
+
+    gordas = {i for i, r in enumerate(d.regiones) if r.grosor_mm >= 0.9}
+    assert 0 < len(gordas) < len(d.regiones)
+    parcial = tejer(d, incluir=gordas).count_stitch_commands(pe.STITCH)
+    assert parcial < todas
+
+
+def test_tejer_sin_nada_no_revienta(insignia):
+    from bordado.imagen.digitalizar import tejer
+    _, d, _ = digitalizar(insignia, ancho_mm=60, n_colores=3, px_por_mm=8.0)
+    assert tejer(d, incluir=set()).count_stitch_commands(pe.STITCH) == 0
+
+
+def test_tejer_no_modifica_el_analisis(insignia):
+    """
+    Se teje muchas veces sobre el MISMO analisis: si tejer lo alterara, la
+    segunda eleccion del usuario partiria de datos distintos.
+    """
+    from bordado.imagen.digitalizar import tejer
+    _, d, _ = digitalizar(insignia, ancho_mm=60, n_colores=3, px_por_mm=8.0)
+    antes = [r.exterior for r in d.regiones]
+    tejer(d, incluir={0})
+    tejer(d, incluir=None)
+    assert [r.exterior for r in d.regiones] == antes
+
+
+def test_tejer_repetido_da_el_mismo_archivo(insignia):
+    from bordado.imagen.digitalizar import tejer
+    _, d, _ = digitalizar(insignia, ancho_mm=60, n_colores=3, px_por_mm=8.0)
+    assert tejer(d).stitches == tejer(d).stitches
+
+
+# ------------------------------------------------------ contornos del SVG
+
+def test_el_contorno_de_un_svg_se_borda(tmp_path: Path):
+    """
+    El caso reportado: el contorno blanco de un escudo no llegaba al bordado.
+    Ahora tiene que aparecer como hilo, con su propio color.
+    """
+    f = tmp_path / "escudo.svg"
+    f.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+        '<rect x="20" y="20" width="160" height="160" fill="#1A2F5C" '
+        'stroke="#FFFFFF" stroke-width="8"/></svg>')
+    _, d, _ = digitalizar(f, ancho_mm=80, n_colores=5)
+    assert any(r.trazo for r in d.regiones), "el contorno no llego a bordarse"
+    hexes = {d.hilos[r.color].hex for r in d.regiones if r.trazo}
+    assert hexes == {"#FFFFFF"}
+
+
+def test_un_contorno_grueso_se_cubre_con_satin(tmp_path: Path):
+    f = tmp_path / "grueso.svg"
+    f.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+        '<rect x="20" y="20" width="160" height="160" fill="none" '
+        'stroke="#000" stroke-width="8"/></svg>')
+    _, d, _ = digitalizar(f, ancho_mm=80, n_colores=5)
+    trazos = [r for r in d.regiones if r.trazo]
+    assert trazos and elegir_tecnica(trazos[0]) == "trazo_satin"
+
+
+def test_un_contorno_finisimo_se_cose_como_linea(tmp_path: Path):
+    f = tmp_path / "fino.svg"
+    f.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+        '<rect x="20" y="20" width="160" height="160" fill="none" '
+        'stroke="#000" stroke-width="1"/></svg>')
+    _, d, _ = digitalizar(f, ancho_mm=80, n_colores=5)
+    trazos = [r for r in d.regiones if r.trazo]
+    assert trazos and elegir_tecnica(trazos[0]) == "corrida"

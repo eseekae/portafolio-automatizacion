@@ -120,6 +120,16 @@ exportar:
 - **Los degradados no se bordan.** Cada color es un carrete; conviértelos a
   colores planos.
 
+**Los contornos (`stroke`) sí se bordan.** En un logo, el contorno blanco de
+un escudo o el marco de una cinta casi nunca es un relleno: es un trazo. Se
+cosen según su grosor — con **satén** si el trazo tiene cuerpo, con **corrida
+triple** si es una línea fina — respetando el ancho que dice el archivo, con
+las transformaciones aplicadas.
+
+> Hasta la 0.8.0 el importador leía solo `fill` y se saltaba `stroke` por
+> completo: esas piezas no llegaban al bordado y no había forma de
+> recuperarlas.
+
 ## Qué esperar, con honestidad
 
 **Funciona bien** con logos, íconos y dibujos de colores planos — que es
@@ -145,6 +155,37 @@ Tres cosas que sí hace bien y que la mayoría de los automáticos baratos no:
   el halo difuso que deja reducir la imagen (por debajo de 0,25 mm).
 - **Te dice qué hilos comprar.** Elige de la paleta real de tu máquina, con
   nombre y número, y avisa cuándo el color es solo aproximado.
+
+## Elegir qué partes se bordan
+
+Un logo trae piezas que no siempre quieres: un contorno, una sombra, un texto
+que a ese tamaño no se va a leer. Después de digitalizar aparece la lista de
+**piezas detectadas**, cada una con su color de hilo, su técnica y su tamaño.
+Desmarca las que no quieras y pulsa **Rehacer con lo marcado**.
+
+Es instantáneo: analizar la imagen es lo caro y ya está hecho; rehacer las
+puntadas no cuesta nada. Puedes probar combinaciones sin esperar.
+
+Atajos: **Todo**, **Nada** y **Sin el detalle fino** (deja solo las piezas
+que se rellenan de verdad). Desde la terminal:
+
+```bash
+matriz digitalizar logo.png --ancho 90 --sin-detalle-fino
+```
+
+## Hasta dónde llega el detalle chico
+
+El programa te avisa cuándo una pieza mide menos de **4 mm de alto**. No es
+un límite del software: **el hilo mide 0,4 mm de ancho**. Un número de 2,5 mm
+tiene sitio para seis hilos de alto contando los huecos — no hay máquina ni
+programa que lo haga legible.
+
+Si tu logo trae texto chico tienes tres salidas, en este orden:
+
+1. **Agrandar el diseño.** Es la única que resuelve de verdad. La misma
+   insignia a 160 mm en vez de 80 borda el año con relleno macizo y se lee.
+2. **Desmarcar esas piezas** y bordar el resto limpio.
+3. Bordar el texto aparte, más grande, como una segunda pieza.
 
 # Appliqué: bordar sobre tela en vez de rellenar
 
@@ -426,6 +467,10 @@ matriz simular dragon.pes
 | Zonas cosidas dos veces | el mismo tramo se repinta |
 | Orden de colores | qué color tapa a cuál |
 
+- **El color de la tela.** Ocho atajos (blanco, negro, gris, azul marino,
+  burdeo, verde, crudo, rojo) y un selector para cualquier color. Sobre fondo
+  blanco un hilo blanco es invisible y no hay forma de revisarlo; y un diseño
+  para polera negra se ve distinto de lo que va a ser.
 - **Lo que ves es el archivo, sin maquillaje.** El simulador no endereza ni
   corrige nada: dibuja las coordenadas tal como están escritas. Si el archivo
   sale torcido, se ve torcido — que para eso es un simulador. Un visor que
@@ -706,7 +751,7 @@ Estimación de puntadas de un relleno de área `A`, densidad `d`, largo `l`:
 
 ## Estado actual
 
-Implementado y testeado (221 tests, en Windows / macOS / Linux):
+Implementado y testeado (243 tests, en Windows / macOS / Linux):
 
 - Conversor por lotes con verificación por relectura
 - Auto-digitalización de imágenes con huecos, orden de colores y hilos reales
@@ -721,6 +766,10 @@ Implementado y testeado (221 tests, en Windows / macOS / Linux):
   pantalla, zoom y revisión de fallas
 - Detalle fino (contornos, números, trazos de medio milímetro) cosido con
   corrida triple en vez de descartado
+- Selector de piezas: el usuario elige qué partes del dibujo se bordan
+- Contornos (`stroke`) del SVG, con satén o corrida según su grosor
+- Resolución de trabajo adaptativa al tamaño del diseño
+- Color de tela configurable en el simulador
 - Aplicación de escritorio de dos pestañas y empaquetado a ejecutable
 - Relleno tatami con underlay cruzado, serpentina y corte en concavidades
 - Columna satin con underlay de eje y compensación de tracción
@@ -741,14 +790,19 @@ Limitaciones conocidas (documentadas en el código):
   carísimo y la heurística ya baja el recorrido un 78% dentro de cada región.
 - El satin automático trata cada región por separado: no encadena varias
   ramas de una misma letra en una sola columna continua.
-- La corrida de detalle fino sigue el **contorno** de la región, no su eje
-  medial. En un trazo de medio milímetro los dos bordes distan menos que el
-  ancho del propio hilo y no se nota; en uno de 0,8 mm se ven dos líneas
-  paralelas muy juntas en vez de una sola. Calcular el eje medial de verdad
-  exige un esqueleto morfológico, que es caro y frágil con contornos ruidosos.
-- Un texto muy chico (menos de ~4 mm de alto) sale como el contorno de cada
-  letra, no como letras macizas. Para lettering de verdad hacen falta fuentes
-  vectoriales propias, que es otro proyecto.
+- El detalle fino se cose por su **eje central** solo cuando la pieza es una
+  franja larga y angosta (elongación ≥ 3). Una figura compacta —el cuerpo de
+  un número— no tiene un eje que la represente y se cose recorriendo su borde;
+  forzarle un eje la convierte en un palito. Se midió sobre una insignia real:
+  los contornos finos dan elongación 3,6–3,8 y los dígitos 1,4–1,9.
+- Un texto de menos de ~4 mm de alto sale como el contorno de cada letra, no
+  como letras macizas, y el programa lo avisa. **No es un límite del software
+  sino del hilo**: 0,4 mm de ancho no caben dentro de una letra de 2,5 mm.
+  Para lettering de verdad hacen falta fuentes vectoriales propias.
+- El offset que convierte un `stroke` en columna satén es por normales
+  promediadas, igual que `desplazar_contorno`: con los grosores de un contorno
+  (medio milímetro a cada lado) no alcanza a auto-intersectarse, pero un trazo
+  muy grueso con esquinas agudas sí podría.
 - El appliqué usa el contorno completo de la región. Un diseño real suele
   aplicar la silueta entera y bordar los detalles encima.
 - `.exp` no almacena colores: necesita un `.inf`/`.edr` acompañante.

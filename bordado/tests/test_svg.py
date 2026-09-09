@@ -10,7 +10,7 @@ import math
 import pytest
 
 from bordado.geometria import area_shoelace
-from bordado.imagen.svg import cargar, leer_path, separar
+from bordado.imagen.svg import cargar, leer, leer_path, separar
 
 CABECERA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
 
@@ -217,3 +217,69 @@ def test_un_svg_sin_formas_rellenas_avisa(svg):
     with pytest.raises(ValueError, match="relleno"):
         digitalizar(svg('<rect width="20" height="20" fill="none"/>'),
                     ancho_mm=50)
+
+
+# ------------------------------------------------------------ contornos
+#
+# Vienen de un caso real: la insignia de un colegio en SVG, donde el contorno
+# blanco del escudo no llegaba al bordado. El importador leia solo `fill` y se
+# saltaba `stroke` por completo. En un logo el contorno casi nunca es un
+# relleno: es un trazo, y sin el la pieza no existe.
+
+def test_un_contorno_se_lee_como_trazo(svg):
+    rellenos, trazos = leer(svg('<rect x="10" y="10" width="80" height="80" '
+                                'fill="none" stroke="#FFFFFF" stroke-width="4"/>'),
+                            100.0)
+    assert rellenos == []
+    assert len(trazos) == 1
+    assert trazos[0].color == (255, 255, 255)
+    assert trazos[0].cerrado is True
+
+
+def test_el_grosor_del_contorno_llega_en_milimetros(svg):
+    """El lienzo mide 100 unidades; pedido a 50 mm, todo va a la mitad."""
+    _, trazos = leer(svg('<rect x="10" y="10" width="80" height="80" '
+                         'fill="none" stroke="#000" stroke-width="4"/>'), 50.0)
+    assert trazos[0].ancho_mm == pytest.approx(2.0, abs=0.01)
+
+
+def test_una_transformacion_tambien_escala_el_contorno(svg):
+    """`stroke-width` esta en el espacio del elemento, no en el del lienzo."""
+    _, trazos = leer(svg('<g transform="scale(2)">'
+                         '<rect x="5" y="5" width="20" height="20" fill="none"'
+                         ' stroke="#000" stroke-width="3"/></g>'), 100.0)
+    assert trazos[0].ancho_mm == pytest.approx(6.0, abs=0.05)
+
+
+def test_una_forma_con_relleno_y_contorno_da_las_dos_cosas(svg):
+    rellenos, trazos = leer(svg('<rect x="10" y="10" width="80" height="80" '
+                                'fill="#f00" stroke="#00f" stroke-width="2"/>'),
+                            100.0)
+    assert len(rellenos) == 1 and rellenos[0][0] == (255, 0, 0)
+    assert len(trazos) == 1 and trazos[0].color == (0, 0, 255)
+
+
+def test_una_polilinea_abierta_no_se_cierra(svg):
+    _, trazos = leer(svg('<polyline points="10,10 50,10 50,50" fill="none" '
+                         'stroke="#000" stroke-width="2"/>'), 100.0)
+    assert trazos[0].cerrado is False
+
+
+def test_un_path_con_z_si_se_cierra(svg):
+    _, trazos = leer(svg('<path d="M10 10 L50 10 L50 50 Z" fill="none" '
+                         'stroke="#000" stroke-width="2"/>'), 100.0)
+    assert trazos[0].cerrado is True
+
+
+def test_un_contorno_sin_grosor_no_se_borda(svg):
+    rellenos, trazos = leer(svg('<rect x="10" y="10" width="80" height="80" '
+                                'fill="none" stroke="none"/>'), 100.0)
+    assert rellenos == [] and trazos == []
+
+
+def test_el_contorno_se_hereda_del_grupo(svg):
+    """Como el relleno: si el grupo lo define, los hijos lo usan."""
+    _, trazos = leer(svg('<g stroke="#0f0" stroke-width="3">'
+                         '<rect x="10" y="10" width="40" height="40" fill="none"/>'
+                         '</g>'), 100.0)
+    assert len(trazos) == 1 and trazos[0].color == (0, 255, 0)

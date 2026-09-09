@@ -155,3 +155,37 @@ def test_filtrar_salida(tmp_path: Path):
 def test_resumen_es_legible():
     assert "CANCELADO" in Fin(cancelado=True).resumen()
     assert Fin(error="x").resumen().startswith("Error:")
+
+
+# ------------------------------------------- elegir que partes se bordan
+
+def test_rehacer_sin_analisis_previo_no_hace_nada():
+    """Antes de digitalizar no hay nada que rehacer: se rechaza sin reventar."""
+    from bordado.gui.controlador import Controlador
+    assert Controlador().rehacer_imagen({0}) is False
+
+
+def test_la_pieza_se_describe_en_castellano_llano():
+    """La etiqueta la lee alguien que borda, no alguien que programa."""
+    from bordado.gui.controlador import Pieza
+    pz = Pieza(indice=0, color="#1B4F9C", hilo="Navy Blue", tecnica="corrida",
+               area_mm2=4.0, alto_mm=3.1, fina=True)
+    texto = pz.etiqueta()
+    assert "detalle fino" in texto
+    assert "4 mm2" in texto and "3.1 mm" in texto
+    assert "corrida" not in texto     # jerga del motor, no de la ventana
+
+
+def test_cada_tecnica_tiene_nombre_propio():
+    from bordado.gui.controlador import Pieza
+    def etiqueta(t):
+        return Pieza(0, "#000", "x", t, 10.0, 5.0, False).etiqueta()
+    assert "relleno" in etiqueta("relleno")
+    assert "satin" in etiqueta("satin")
+    assert "contorno" in etiqueta("trazo_satin")
+    assert "aplique" in etiqueta("aplique")
+
+
+def test_una_tecnica_desconocida_no_rompe_la_etiqueta():
+    from bordado.gui.controlador import Pieza
+    assert "loquesea" in Pieza(0, "#000", "x", "loquesea", 1.0, 1.0, False).etiqueta()

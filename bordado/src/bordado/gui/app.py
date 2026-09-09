@@ -22,6 +22,7 @@ macOS. En Linux puede requerir el paquete `python3-tk`.
 from __future__ import annotations
 
 import sys
+import tkinter as tk
 import webbrowser
 from pathlib import Path
 from tkinter import BOTH, END, LEFT, RIGHT, WORD, X, Tk, filedialog, messagebox
@@ -239,13 +240,60 @@ class Aplicacion(ttk.Frame):
         ttk.Spinbox(a, from_=0, to=99, width=4,
                     textvariable=self.v_semilla).pack(side=LEFT)
 
-        v = ttk.Frame(raiz); v.pack(fill=X, pady=(10, 0))
+        # Las miniaturas llevan alto fijo: el espacio que sobra es para la
+        # lista de piezas, que es donde el usuario trabaja.
+        v = ttk.Frame(raiz, height=MINIATURA + 12)
+        v.pack(fill=X, pady=(10, 0)); v.pack_propagate(False)
         self.lbl_original = ttk.Label(v, text="(sin imagen)", anchor="center",
-                                      relief="groove", width=26)
+                                      relief="groove", width=22)
         self.lbl_original.pack(side=LEFT, fill=BOTH, expand=True)
         self.lbl_bordado = ttk.Label(v, text="(sin resultado)", anchor="center",
-                                     relief="groove", width=26)
+                                     relief="groove", width=22)
         self.lbl_bordado.pack(side=LEFT, fill=BOTH, expand=True, padx=(10, 0))
+
+        # --- Que se borda -------------------------------------------------
+        # Un logo trae piezas que no siempre se quieren: un contorno, una
+        # sombra, un texto que a ese tamano no se va a leer. Elegirlas es
+        # inmediato porque no hay que volver a analizar la imagen, solo
+        # rehacer las puntadas.
+        self.caja_piezas = ttk.LabelFrame(raiz, text="3. Que partes bordar")
+        self.caja_piezas.pack(fill=BOTH, expand=True, pady=(10, 0))
+        self.caja_piezas.pack_forget()          # aparece al digitalizar
+
+        m = ttk.Frame(self.caja_piezas); m.pack(fill=X, padx=6, pady=(6, 0))
+        ttk.Button(m, text="Todo", width=8,
+                   command=lambda: self._marcar_piezas("todo")).pack(side=LEFT)
+        ttk.Button(m, text="Nada", width=8,
+                   command=lambda: self._marcar_piezas("nada")).pack(
+                       side=LEFT, padx=(6, 0))
+        ttk.Button(m, text="Sin el detalle fino", width=18,
+                   command=lambda: self._marcar_piezas("gruesas")).pack(
+                       side=LEFT, padx=(6, 0))
+        self.btn_rehacer = ttk.Button(m, text="Rehacer con lo marcado",
+                                      command=self._rehacer, state="disabled")
+        self.btn_rehacer.pack(side=LEFT, padx=(16, 0))
+        self.lbl_aviso_detalle = ttk.Label(self.caja_piezas, text="",
+                                           foreground="#B3261E", wraplength=900,
+                                           justify=LEFT)
+        self.lbl_aviso_detalle.pack(fill=X, padx=8, pady=(4, 0))
+
+        cont = ttk.Frame(self.caja_piezas); cont.pack(fill=BOTH, expand=True,
+                                                     padx=6, pady=6)
+        self.lienzo_piezas = tk.Canvas(cont, height=190, highlightthickness=0)
+        barra = ttk.Scrollbar(cont, orient="vertical",
+                              command=self.lienzo_piezas.yview)
+        self.lienzo_piezas.configure(yscrollcommand=barra.set)
+        barra.pack(side="right", fill="y")
+        self.lienzo_piezas.pack(side="left", fill=BOTH, expand=True)
+        self.marco_piezas = ttk.Frame(self.lienzo_piezas)
+        self.lienzo_piezas.create_window((0, 0), window=self.marco_piezas,
+                                         anchor="nw")
+        self.marco_piezas.bind(
+            "<Configure>",
+            lambda e: self.lienzo_piezas.configure(
+                scrollregion=self.lienzo_piezas.bbox("all")))
+        self._piezas: list = []
+        self._marcas: list = []
 
     # ---------------------------------------------------------- acciones
 
@@ -365,6 +413,52 @@ class Aplicacion(ttk.Frame):
         self.barra.start(30)
         self.ctrl.iniciar_imagen(trabajo)
 
+    def _pintar_piezas(self, piezas: list) -> None:
+        """Dibuja la lista de piezas con su casilla, su color y su medida."""
+        for w in self.marco_piezas.winfo_children():
+            w.destroy()
+        self._piezas = list(piezas)
+        self._marcas = []
+        for pz in piezas:
+            fila = ttk.Frame(self.marco_piezas)
+            fila.pack(fill=X, pady=1)
+            var = tk.BooleanVar(value=True)
+            self._marcas.append(var)
+            ttk.Checkbutton(fila, variable=var).pack(side=LEFT)
+            # Una muestra del color del hilo: es como el usuario reconoce la
+            # pieza, mucho antes que por su area en mm2.
+            muestra = tk.Label(fila, background=pz.color, width=2, relief="solid",
+                               borderwidth=1)
+            muestra.pack(side=LEFT, padx=(0, 6))
+            texto = f"{pz.hilo or pz.color} — {pz.etiqueta()}"
+            if pz.fina:
+                texto += "  (detalle fino)"
+            ttk.Label(fila, text=texto).pack(side=LEFT)
+        self.caja_piezas.pack(fill=BOTH, expand=True, pady=(10, 0))
+        self.btn_rehacer.config(state="normal" if piezas else "disabled")
+
+    def _marcar_piezas(self, cual: str) -> None:
+        for var, pz in zip(self._marcas, self._piezas):
+            if cual == "todo":
+                var.set(True)
+            elif cual == "nada":
+                var.set(False)
+            else:                       # "gruesas": todo menos el detalle fino
+                var.set(not pz.fina)
+
+    def _rehacer(self) -> None:
+        incluir = {pz.indice for var, pz in zip(self._marcas, self._piezas)
+                   if var.get()}
+        if not incluir:
+            messagebox.showwarning(
+                TITULO, "No queda ninguna pieza marcada: no hay nada que bordar.")
+            return
+        self.v_estado.set("Rehaciendo con las piezas elegidas...")
+        self._ocupar()
+        self.btn_rehacer.config(state="disabled")
+        if not self.ctrl.rehacer_imagen(incluir):
+            self._liberar()
+
     def _ver_simulacion(self) -> None:
         """Abre en el navegador la reproduccion del bordado."""
         if self._simulacion and Path(self._simulacion).is_file():
@@ -452,6 +546,16 @@ class Aplicacion(ttk.Frame):
         self._simulacion = ev.simulacion
         if ev.simulacion and Path(ev.simulacion).is_file():
             self.btn_simular.config(state="normal")
+        if ev.piezas:
+            marcadas = {pz.indice for var, pz in zip(self._marcas, self._piezas)
+                        if var.get()} if self._marcas else None
+            self._pintar_piezas(ev.piezas)
+            if marcadas is not None:
+                for var, pz in zip(self._marcas, self._piezas):
+                    var.set(pz.indice in marcadas)
+        self.lbl_aviso_detalle.config(text=ev.aviso_detalle)
+        if ev.aviso_detalle:
+            self._escribir("\n" + ev.aviso_detalle + "\n", "error")
         salida = self.v_salida_img.get().strip()
         if salida and Path(salida).is_dir():
             self.btn_abrir.config(state="normal")

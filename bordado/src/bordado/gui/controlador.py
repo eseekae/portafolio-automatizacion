@@ -134,12 +134,32 @@ class Mensaje:
 
 
 @dataclass
+class Pieza:
+    """Una parte del dibujo, como se le muestra al usuario para elegirla."""
+    indice: int
+    color: str            # "#RRGGBB" del hilo
+    hilo: str             # nombre del hilo en el catalogo
+    tecnica: str
+    area_mm2: float
+    alto_mm: float
+    fina: bool            # detalle fino: contorno, numero, trazo delgado
+
+    def etiqueta(self) -> str:
+        que = {"relleno": "relleno", "satin": "satin",
+               "corrida": "detalle fino", "trazo_satin": "contorno",
+               "aplique": "aplique"}.get(self.tecnica, self.tecnica)
+        return f"{que} · {self.area_mm2:.0f} mm2 · alto {self.alto_mm:.1f} mm"
+
+
+@dataclass
 class FinImagen:
     resumen: str = ""
     calidad: str = ""
     archivos: list[Path] = field(default_factory=list)
     vista_previa: Path | None = None
     simulacion: Path | None = None
+    piezas: list[Pieza] = field(default_factory=list)
+    aviso_detalle: str = ""
     error: str = ""
 
 
@@ -163,6 +183,8 @@ class Controlador:
         self.cola: queue.Queue[Evento] = queue.Queue()
         self._hilo: threading.Thread | None = None
         self._cancelar = threading.Event()
+        # Ultimo analisis, para poder re-tejer sin re-analizar.
+        self._analisis = None
 
     # -- estado ------------------------------------------------------------
 
@@ -220,7 +242,7 @@ class Controlador:
             destino = t.dir_salida or t.imagen.parent
             nombre = t.imagen.stem
 
-            patron, d, _ = digitalizar(
+            _, d, _ = digitalizar(
                 t.imagen, ancho_mm=t.ancho_mm, n_colores=t.n_colores,
                 formato_hilos=t.formatos[0], g=g, densidad_mm=t.densidad_mm,
                 quitar_fondo=t.quitar_fondo, semilla=t.semilla,
@@ -229,6 +251,43 @@ class Controlador:
             if self._cancelar.is_set():
                 self.cola.put(FinImagen(error="Cancelado."))
                 return
+
+            # Se guarda el analisis: es la parte cara. Si el usuario cambia
+            # que piezas quiere bordar, solo hay que volver a tejer.
+            self._analisis = (d, t, g)
+            self._entregar(d, t, g, incluir=None)
+        except Exception as e:  # noqa: BLE001 - la ventana no puede morir en silencio
+            self.cola.put(FinImagen(error=f"{type(e).__name__}: {e}"))
+
+    def rehacer_imagen(self, incluir: set[int]) -> bool:
+        """
+        Vuelve a generar los archivos con solo las piezas elegidas.
+
+        No re-analiza la imagen: reusa el analisis guardado. Por eso es
+        instantaneo y el usuario puede probar combinaciones sin esperar.
+        """
+        if self.ocupado or self._analisis is None:
+            return False
+        d, t, g = self._analisis
+        self._cancelar.clear()
+        self._hilo = threading.Thread(
+            target=self._entregar, args=(d, t, g, set(incluir)), daemon=True)
+        self._hilo.start()
+        return True
+
+    def _entregar(self, d, t: TrabajoImagen, g, incluir: set[int] | None) -> None:
+        """Teje, exporta, simula y publica el resultado."""
+        try:
+            from ..exportar import exportar
+            from ..imagen.digitalizar import (
+                ALTURA_TEXTO_MINIMA_MM, PERFILES, elegir_tecnica, tejer,
+            )
+
+            destino = t.dir_salida or t.imagen.parent
+            nombre = t.imagen.stem
+            patron = tejer(d, g=g, densidad_mm=t.densidad_mm,
+                           perfil_obj=PERFILES.get(t.perfil),
+                           aplique=t.aplique, incluir=incluir)
 
             self.cola.put(Mensaje(d.resumen()))
             if d.notas:
@@ -255,11 +314,34 @@ class Controlador:
                 self.cola.put(Mensaje(f"No se pudo generar la simulacion: {e}",
                                       "error"))
 
+            piezas = []
+            bajitas = 0
+            for i, r in enumerate(d.regiones):
+                h = d.hilos.get(r.color)
+                alto = (max(q[1] for q in r.exterior)
+                        - min(q[1] for q in r.exterior))
+                fina = r.grosor_mm < 0.9 or r.trazo
+                if fina and alto < ALTURA_TEXTO_MINIMA_MM:
+                    bajitas += 1
+                piezas.append(Pieza(
+                    indice=i, color=(h.hex if h else "#333333"),
+                    hilo=(h.nombre if h else ""), tecnica=elegir_tecnica(r),
+                    area_mm2=r.area_mm2, alto_mm=alto, fina=fina))
+
+            aviso = ""
+            if bajitas:
+                aviso = (
+                    f"{bajitas} pieza(s) de detalle miden menos de "
+                    f"{ALTURA_TEXTO_MINIMA_MM:.0f} mm de alto. A ese tamano el "
+                    "hilo es demasiado grueso y el detalle no se va a leer en "
+                    "la tela. Agranda el diseno o desmarcalas.")
+
             self.cola.put(FinImagen(resumen=d.resumen(),
                                     calidad=reporte.texto(),
                                     archivos=archivos, vista_previa=previa,
-                                    simulacion=simulacion))
-        except Exception as e:  # noqa: BLE001 - la ventana no puede morir en silencio
+                                    simulacion=simulacion, piezas=piezas,
+                                    aviso_detalle=aviso))
+        except Exception as e:  # noqa: BLE001
             self.cola.put(FinImagen(error=f"{type(e).__name__}: {e}"))
 
     def _trabajar(self, t: Trabajo) -> None:
