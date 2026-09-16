@@ -1,0 +1,5 @@
+[console_scripts]
+matriz = bordado.cli:main
+
+[gui_scripts]
+matriz-gui = bordado.gui.app:main

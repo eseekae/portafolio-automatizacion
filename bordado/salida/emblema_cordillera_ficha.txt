@@ -1,0 +1,21 @@
+==========================================================
+ REPORTE DE CALIDAD
+==========================================================
+  Puntadas.......................... 3840
+  Cambios de color.................. 4
+  Cortes (TRIM)..................... 14
+  Dimensiones (mm).................. 58.9 x 58.9
+  Aro objetivo...................... Brother 4x4
+  Hilo consumido (m)................ 11.91
+  Densidad (punt/cm2)............... 111
+  Tiempo estimado (min)............. 5.5
+----------------------------------------------------------
+  ADVERTENCIAS (1):
+    ! 1 saltos largos sin corte: revisa el orden de objetos.
+==========================================================
+
+SECUENCIA DE HILOS
+  1. #F2E4C9  fondo
+  2. #F5B301  sol
+  3. #1B4F9C  cerros
+  4. #2B2B2B  borde

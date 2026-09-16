@@ -1,0 +1,10 @@
+pyembroidery>=1.4.35
+Pillow>=10.0
+numpy>=1.24
+
+[build]
+pyinstaller>=6.0
+
+[dev]
+pytest>=7.0
+pytest-timeout>=2.3
