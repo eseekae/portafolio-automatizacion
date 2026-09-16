@@ -1,0 +1,56 @@
+{
+  "diseno": "emblema_cordillera",
+  "metricas": {
+    "Puntadas": 3840,
+    "Cambios de color": 4,
+    "Cortes (TRIM)": 14,
+    "Dimensiones (mm)": "58.9 x 58.9",
+    "Aro objetivo": "Brother 4x4",
+    "Hilo consumido (m)": "11.91",
+    "Densidad (punt/cm2)": "111",
+    "Tiempo estimado (min)": "5.5"
+  },
+  "aro_objetivo": {
+    "nombre": "Brother 4x4",
+    "ancho_mm": 100.0,
+    "alto_mm": 100.0
+  },
+  "secuencia_de_hilos": [
+    {
+      "orden": 1,
+      "hex": "#F2E4C9",
+      "descripcion": "fondo",
+      "catalogo": ""
+    },
+    {
+      "orden": 2,
+      "hex": "#F5B301",
+      "descripcion": "sol",
+      "catalogo": ""
+    },
+    {
+      "orden": 3,
+      "hex": "#1B4F9C",
+      "descripcion": "cerros",
+      "catalogo": ""
+    },
+    {
+      "orden": 4,
+      "hex": "#2B2B2B",
+      "descripcion": "borde",
+      "catalogo": ""
+    }
+  ],
+  "formatos_incluidos": [
+    "pes",
+    "jef",
+    "dst",
+    "exp",
+    "vp3"
+  ],
+  "qa_aprobado": true,
+  "errores": [],
+  "advertencias": [
+    "1 saltos largos sin corte: revisa el orden de objetos."
+  ]
+}

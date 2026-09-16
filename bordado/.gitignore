@@ -1,8 +1,0 @@
-__pycache__/
-*.pyc
-.pytest_cache/
-salida/*
-!salida/.gitkeep
-*.egg-info/
-build/
-dist/
