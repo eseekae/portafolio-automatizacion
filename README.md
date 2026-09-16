@@ -38,8 +38,8 @@ Programa de escritorio para trabajar matrices de bordado: conversión por lotes
 entre formatos (`.JEF`, `.PES`, `.DST`…), auto-digitalización desde una imagen
 o un SVG, y un simulador que muestra cómo la máquina va a coser el diseño.
 
-Creció hasta ser un proyecto por sí solo y **vive en su propio repositorio**:
-[`eseekae/bastidor`](https://github.com/eseekae/bastidor).
+Creció hasta ser un proyecto por sí solo y vive en su propio repositorio,
+todavía privado. *(Enlace pendiente de que se publique.)*
 
 **Stack:** Python, pyembroidery, tkinter, PyInstaller, GitHub Actions
 
